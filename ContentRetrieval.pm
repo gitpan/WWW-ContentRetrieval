@@ -2,7 +2,7 @@ package WWW::ContentRetrieval;
 
 use 5.006;
 use strict;
-our $VERSION = '0.091';
+our $VERSION = '0.092';
 
 require Exporter;
 our @ISA = qw(Exporter);

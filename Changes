@@ -39,3 +39,6 @@ Revision history for Perl extension WWW::ContentRetrieval.
 
 0.091 Thu, 20 Feb 2003 17:34:50 +0800
 	- WWW::ShopBot added
+
+0.092 Sun,  9 Mar 2003 20:46:05 +0800
+	- WWW::ShopBot isolated

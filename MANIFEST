@@ -22,8 +22,3 @@ CRL/MANIFEST
 t/extract.t
 t/robot.desc
 t/robot.t
-ShopBot/Changes
-ShopBot/Makefile.PL
-ShopBot/MANIFEST
-ShopBot/README
-ShopBot/ShopBot.pm

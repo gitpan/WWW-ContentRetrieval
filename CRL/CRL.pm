@@ -9,9 +9,9 @@ our $VERSION = '0.02';
 use File::Slurp;
 use POSIX qw/tmpnam/;
 
-my %dirset = map{$_=>1} qw(crl lrc name login logout fetch url jar param key method case policy callback);
+my %dirset = map{$_=>1} qw(crl lrc name login logout fetch url jar param key method case policy callback merge);
 
-my %arg2eat = qw(crl 1 lrc 0 name 1 login 0 logout 0 fetch 0 url 1 jar 1 param 2 key 1 method 1 case 2 policy 2 callback 2);
+my %arg2eat = qw(crl 1 lrc 0 name 1 login 0 logout 0 fetch 0 url 1 jar 1 param 2 key 1 method 1 case 2 policy 2 callback 2 merge 1);
 
 sub refine($) {
     unless( exists $_[0]->{jar} ){
@@ -49,6 +49,9 @@ sub parse($) {
 	    elsif( $dir eq 'key' ){
 		push @{$ref->{$context}->{param}}, [ $p1, '' ];
 		$ref->{$context}->{$dir} = $#{$ref->{$context}->{param}};
+	    }
+	    elsif( $dir eq 'merge' ){
+		push @{$ref->{$context}->{$dir}}, 1;
 	    }
 	    elsif( $arg2eat{$dir} == 2 ){
 		my ($text, $j);
