@@ -2,18 +2,30 @@ package WWW::ContentRetrieval::Extract;
 
 use 5.006;
 use strict;
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
+use WWW::ContentRetrieval::Utils;
 use Data::Dumper;
 use URI;
+use YAML;
 
 # ----------------------------------------------------------------------
-# constructor
+# Constructor
 # ----------------------------------------------------------------------
 sub new {
     my($pkg, $arg) = @_;
+    my $desc;
+    my $callpkg = $arg->{CALLPKG} ? $arg->{CALLPKG} : caller(0);
+    if($arg->{DESC}){
+	$desc = Load($arg->{DESC});
+	transform_desc($callpkg, $desc);
+    }
+    else {
+	$desc = $arg->{PARSED_DESC};
+    }
+
     my($obj) = {
-	DESC        => $arg->{DESC},      # configuraion
+	DESC        => $desc,             # configuraion
 	TEXT        => $arg->{TEXT},      # page's content
 	THISURL     => $arg->{THISURL},
     };
@@ -28,32 +40,40 @@ sub extract($) {
     my ($pagetext) = $pkg->{TEXT};       # page's text
     my ($thisurl)  = $pkg->{THISURL};    # this url
     my ($desc)     = $pkg->{DESC};
+    my ($policy)   = $desc->{FETCH}->{POLICY};
+    my ($next)     = $desc->{FETCH}->{NEXT};
     my (@retarr)   = qw//;
     my ($output, $c, $corrupt);
     my (%output);
     my ($type, $urlpatt, $nextpatt);
+    my $top;
+
 
     ### parse the item settings ###
-    unless ( $desc->{ITEMS_PARSED} ){
-	for(my $i=0; $i<@{$desc->{POLICY}}; $i+=2){
-	    if( ref $desc->{POLICY}->[$i+1] eq 'SCALAR' ){
-		my $itemref = $desc->{POLICY}->[$i+1];
-		my $top = -1;
+    foreach my $entry (qw/POLICY NEXT/){
+	$top = -1;
+	next if $desc->{$entry."_PARSED"};
+	my $p = $desc->{FETCH}->{$entry};
+	next unless $p;
+	for(my $i=0; $i<@{$p}; $i+=2){
+	    if( ref $p->[$i+1] eq 'SCALAR' ){
+		my $itemref = $p->[$i+1];
 		foreach my $line (
-				  grep{$_} grep{$_!~/^#/o} 
+				  grep{$_}
+				  grep{$_!~/^#/o} 
 				  map{ s/^[\s\t]//go; s/[\s\t]$//go; $_ }
 				  split( /\n+/o, $$itemref )
 				  ){
 		    if( $line =~ /(.+?)=(.+)/o ){
 			my ($head, $patt) = ($1, $2);
 			if( $head =~ /^replace\((.+?)\)/o ){
-			    $desc->{ITEMS}->{ITEMS_FILTER}->[$top]->{$1} = $patt;
+			    $desc->{ITEMS}->{$entry."_FILTER"}->[$top]->{$1} = $patt;
 			}
 			elsif( $head eq 'match' ){
-			    $desc->{ITEMS}->{ITEMS_MATCH}->[++$top] = $patt;
+			    $desc->{ITEMS}->{$entry."_MATCH"}->[++$top] = $patt;
 			}
 			else {
-			    $desc->{ITEMS}->{ITEMS_ASSIGN}->[$top]->{$1} = $2 if $top >= 0;
+			    $desc->{ITEMS}->{$entry."_ASSIGN"}->[$top]->{$1} = $2 if $top >= 0;
 			}
 		    }
 		    else {
@@ -63,37 +83,51 @@ sub extract($) {
 
 	    }
 	}
-	$desc->{ITEMS_PARSED} = 1;
+	$desc->{$entry."_PARSED"} = 1;
     }
 
     ### extract *next* links ###
-    for(my $i=0; $i<@{$desc->{NEXT}}; $i+=2){
-	my $trigger = $desc->{NEXT}->[$i];
-	if($trigger && $thisurl =~ /$trigger/){
-	    my $p = $desc->{NEXT}->[$i+1];
-	    while($pagetext =~ /$p/g){
-		next unless $1;
-		undef $output;
-		$c = $1;
-		$c = URI->new_abs($c, $thisurl)->as_string if($c !~ /^http:/o);
-		$output->{_DTLURL} = $c;
-		push @retarr, $output if $c;
+    for(my $i=0; $next && $i<@{$next}; $i+=2){
+	my $trigger = $next->[$i];
+	if($trigger && $thisurl =~ eval $trigger){
+	    die "Url's pattern error: $trigger $@\n" if $@;
+	    my $p = $next->[$i+1];
+	    if( ref($p) eq 'CODE' ){
+		my $r = $p->(\$pagetext, $thisurl);
+		push @retarr, @$r;
+	    }
+	    elsif( ref($p) eq 'SCALAR' ){
+		my $r = $pkg->match_get( 'NEXT', \$pagetext, $thisurl );
+		push @retarr, @$r;
+	    }
+	    else{
+		my $subtext = $pagetext;
+		while($p){
+		    my $c;
+		    eval "\$subtext =~ $p;".'$c = $1; $subtext = $\'';
+		    die "Url's pattern error: $p $@\n" if $@;
+		    last unless $c;
+		    undef $output;
+		    $c = URI->new_abs($c, $thisurl)->as_string if($c !~ /^http:/o);
+		    $output->{_DTLURL} = $c;
+		    push @retarr, $output if $c;
+		}
 	    }
 	}
     }
 
     my ($nodes, @linevect, $filter, $getmethod);
 
-    for(my $i=0; $i<@{$desc->{POLICY}}; $i+=2){
-	my $pageurl = $desc->{POLICY}->[$i];
-	if( $pageurl && $thisurl =~ /$pageurl/ ) {
-
-	    if( ref($desc->{POLICY}->[$i+1]) eq 'CODE' ){
-		my $r = $desc->{POLICY}->[$i+1]->(\$pagetext, $pageurl);
+    for(my $i=0; $policy && $i<@{$policy}; $i+=2){
+	my $trigger = $policy->[$i];
+	if( $trigger && $thisurl =~ eval $trigger ) {
+	    die "Url's pattern error: $trigger $@\n" if $@;
+	    if( ref($policy->[$i+1]) eq 'CODE' ){
+		my $r = $policy->[$i+1]->(\$pagetext, $thisurl);
 		push @retarr, @$r;
 	    }
-	    elsif( ref($desc->{POLICY}->[$i+1]) eq 'SCALAR' ){
-		my $r = $pkg->match_get( \$pagetext, $pageurl );
+	    elsif( ref($policy->[$i+1]) eq 'SCALAR' ){
+		my $r = $pkg->match_get( 'POLICY', \$pagetext, $thisurl );
 		push @retarr, @$r;
 	    }
 	}
@@ -102,20 +136,21 @@ return \@retarr;
 }
 
 sub match_get {
-    my ( $pkg, $textref, $pageurl ) = @_;
+    my ( $pkg, $type, $textref, $pageurl ) = @_;
     my ( @ret, $item, $i );
     my $desc = $pkg->{DESC};
-    foreach my $patt ( @{$desc->{ITEMS}->{ITEMS_MATCH}} ){
+
+    foreach my $patt ( @{$desc->{ITEMS}->{$type."_MATCH"}} ){
 	$i = 0;
 	while( $$textref =~ /$patt/sg ){
-	    foreach my $idx (0..$#{$desc->{ITEMS}->{ITEMS_ASSIGN}}){
-		my $ass = $desc->{ITEMS}->{ITEMS_ASSIGN}->[$idx];
+	    foreach my $idx (0..$#{$desc->{ITEMS}->{$type."_ASSIGN"}}){
+		my $ass = $desc->{ITEMS}->{$type."_ASSIGN"}->[$idx];
 		$item = undef;
 		foreach my $asskey ( keys %$ass ){
 		    $item->{$asskey} = eval $ass->{$asskey};
-		    if( $desc->{ITEMS}->{ITEMS_FILTER}->[$idx]->{$asskey} ){
+		    if( $desc->{ITEMS}->{$type."_FILTER"}->[$idx]->{$asskey} ){
 			eval '$item->{$asskey} =~ '.
-			    $desc->{ITEMS}->{ITEMS_FILTER}->[$idx]->{$asskey};
+			    $desc->{ITEMS}->{$type."_FILTER"}->[$idx]->{$asskey};
 		    }
 		}
 		$ret[$i++] = $item;

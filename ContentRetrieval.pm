@@ -2,10 +2,11 @@ package WWW::ContentRetrieval;
 
 use 5.006;
 use strict;
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 use WWW::ContentRetrieval::Spider;
 use WWW::ContentRetrieval::Extract;
+use WWW::ContentRetrieval::Utils;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw(genDescTmpl);
@@ -13,34 +14,29 @@ our @EXPORT = qw(genDescTmpl);
 use Data::Dumper;
 use URI;
 use Digest::MD5 qw/md5/;
+use YAML;
 
 # ----------------------------------------------------------------------
 # Generating description template
 # ----------------------------------------------------------------------
 sub genDescTmpl(){
-    <<TMPL;
-{
-  HANDL 
-   =>
-  {
-        NAME => "",
-        NEXT => [
-            'http://foo/' => 'http://bar',
-        ],
-        POLICY =>[
-		  'http://blah' => \&my_callback,
-		  'http://bar'  => [
-				    ["NODE1" => "0.0.0" ],
-				    ],
-        ],
-        METHOD => 'POST',
-        QHANDL => 'http://foo/query',
-        PARAM => [
-                  ['param1', ''],
-                  ],
-        KEY => 'query',
-  },
-};
+    <<'TMPL';
+
+NAME: site's name
+
+FETCH:
+ URL : 'http://foo.bar/query.pl'
+ METHOD: GET
+ PARAM:
+   encoding : UTF8
+ KEY: product
+ POLICY:
+  - m/foo\.bar/ => $items
+  - m/foo\.bar/ => &callback
+ NEXT:
+  - m/./ => m/<a href="(.+?)">.+<\/a>/
+  - m/./ => $next
+
 TMPL
 }
 
@@ -52,9 +48,15 @@ TMPL
 
 sub new($$;$){
     my($pkg, $desc, $settings)= @_;
+    my($callpkg) = caller(0);
     my($justhaveit);
+    $desc = Load($desc);
+    transform_desc($callpkg, $desc);
+    print Dumper $desc;
     bless{
-	DESC       => $desc,
+	CALLPKG    => $callpkg,
+	DESC       => $desc->{FETCH},
+	EXTR       => $desc,
 	SPOOL      => undef,       # URL queue
 	BEEF       => undef,       # desired info
 	JUSTHAVEIT => $justhaveit, # stores checksums of urls that are retrieved
@@ -135,9 +137,10 @@ sub _retrieve{
     return unless $content;
 
     my $k = WWW::ContentRetrieval::Extract->new({
-	TEXT    => $content,
-	DESC    => $pkg->{DESC},
-	THISURL => $thisurl,
+	CALLPKG      => $pkg->{CALLPKG},
+	TEXT         => $content,
+	PARSED_DESC  => $pkg->{EXTR},
+	THISURL      => $thisurl,
     })->extract;
 
     return unless ref $k;
@@ -216,53 +219,56 @@ Users can do it in a command line,
 
 =head2 OVERVIEW
 
-Currently, this module uses Perl's native anonymous array and hash for users to write down site descriptions. Let's see an example.
+L<WWW::ContentRetrieval> uses L<YAML> for users to define a site's description. L<YAML> is a portable, editable, readable, and extensible language. It can be an alternative for L<Data::Dumper>, and it is designed to define a data structure in a friendly way. Thus, L<YAML> is adopted.
 
-Suppose the product's query url of "foobar technology" be B<http://foo.bar/query.pl?encoding=UTF8&product=blahblahblah>, then the description is like the following: 
+Now, suppose the product's query url of "foobar technology" be B<http://foo.bar/query.pl?encoding=UTF8&product=blahblahblah>, then the description is like the following: 
 
+ # callback function
+ sub callback {
+     my ($textref, $thisurl) = @_;
+     blah blah
+ }
+
+ # a small processing language
  $items = <<'ITEMS';
-
   match=<a href="(.+?)">(.+)</a>
   site=$1
   url=$2
-  replace(url)=s/http/ptth/;
+  replace(url)=s/http/ptth/
 
   match=<img src="(.+?)">
   photo="http://foo.bar/".$1
-
  ITEMS
 
- $desc ={
-    NAME => "foobar tech.",
-    NEXT => [
-     'query.pl' => 'detail.pl',
-    ],
-    POLICY => [
-      'http://foo.bar/foobar_product.pl' => \&extraction_callback,
-      'http://foo.bar/product_detail.pl' => \$items,
-    ],
-    METHOD => 'GET',
-    QHANDL => 'http://foo.bar/query.pl',
-    PARAM => [
-     ['encoding', 'UTF8'],
-    ],
-    KEY => 'product',
- };
+ # site's description
+ $desc = <<'...';
+ NAME: site's name
+
+ FETCH:
+   URL : 'http://foo.bar/query.pl'
+   METHOD: GET
+   PARAM:
+    encoding : UTF8
+   KEY: product
+   POLICY:
+    - m/foo\.bar/ => $items
+    - m/foo\.bar/ => &callback
+   NEXT:
+    - m/./ => m/<a href="(.+?)">.+<\/a>/
+    - m/./ => $next
+ ...
 
 =head2 NAME
 
-The name of the site.
-
-=head2 NEXT
-
-NEXT is an anonymous array containing pairs of (this pattern => next pattern). If the current url matches /this pattern/, then text is searched for urls that match /next pattern/ and these urls will be queued for next retrieval.
+Name of the site.
 
 =head2 POLICY
 
-POLICY stores information for a certain page's extraction. It is composed of pairs of (this url's pattern => callback function) or (this url's pattern => reference to retrieval settings). If the current url matches /this pattern/, then this modules will invoke the corresponding callback or extract data according to the retrieval settings given by users.
+POLICY stores information for a certain page's extraction. It is composed of pairs of (this url's pattern => callback function) or (this url's pattern => retrieval settings). If the current url matches /this pattern/, then this modules will invoke the corresponding callback or extract data according to the retrieval settings given by users.
 
 In simple cases, users only need to write down the retrieval settings instead of a callback function. Retrieval settings contains lines of instructions in a /key=value/ format. Here's an example.
 
+ # use a leading # for comment
  $setting=<<'SETTING';
  match=<a href="(.+?)">(.+?)</a>
  url=$1
@@ -271,7 +277,6 @@ In simple cases, users only need to write down the retrieval settings instead of
  SETTING
 
 Then the module will try to match the pattern in the retrieved page, and assigns the keys with matched values. And, B<replace> follows a substitution matcher, which can transform the specified extracted data.
-
 
 If users have to write callback functions for more complex cases, here is the guideline:
 
@@ -308,6 +313,17 @@ If users need WWW::ContentRetrieval to retrieve next page, e.g. dealing with sev
 
 See also I<t/extract.t>, I<t/robot.t>
 
+
+=head2 NEXT
+
+Represents URLs to be retrieved in next cycle.
+
+Likewise, this module tries to match the lefthand side with the current url. If they match, the code on the right side will be invoked.
+
+Additional to callback functions and retrieval settings, users can use regular expressions on the right side. Text will be searched for patterns matching the given one, and don't forget to capture desired urls with parentheses.
+
+N.B. Different righthand sides can be attached to the same lefthand side, which means users can process one webpage with multiple strategies.
+
 =head2 METHOD
 
 Request method: GET, POST, or PLAIN.
@@ -323,14 +339,6 @@ Constant script parameters, excluding user's queries.
 =head2 KEY
 
 Key to user's query strings, e.g. product names
-
-=head1 TO DO
-
-=over 1
-
-=item * A small language for site description
-
-=back
 
 =head1 SEE ALSO
 

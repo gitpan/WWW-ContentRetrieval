@@ -1,6 +1,7 @@
 use Test;
 BEGIN { plan tests => 2 };
 use WWW::ContentRetrieval;
+use Data::Dumper;
 ok(1);
 
 sub callback {
@@ -13,19 +14,24 @@ sub callback {
 }
 
 
-$robot = new WWW::ContentRetrieval({
-    NAME => "test",
-    NEXT => [ ],
-    POLICY =>
-	[
-	 '.' => \&callback,
-	 ],
-    METHOD => 'PLAIN',
-    QHANDL => 'http://google.com/',
-   },
+$robot = new WWW::ContentRetrieval(
+<<'SETTING'
+
+NAME: test
+
+FETCH:
+ METHOD: PLAIN
+ QHANDL: http://www.google.com/
+ POLICY:
+  - m/./ => &callback
+
+SETTING
 );
 
+#print Dumper $robot;
 
 print STDERR "\n\nIt's trying to fetch web pages. Are you connected to the internet [Y]";
 $_=<>;
-/n/i ? ok(1) : ok( $robot->retrieve() ? 1 : 0 , 1 );
+$content = $robot->retrieve();
+print Dumper $content;
+/n/i ? ok(1) : ok( $content ? 1 : 0 , 1 );

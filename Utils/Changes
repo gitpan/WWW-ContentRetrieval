@@ -1,0 +1,6 @@
+Revision history for Perl extension WWW::ContentRetrieval::Utils.
+
+0.01  Thu Feb 13 23:12:19 2003
+	- original version; created by h2xs 1.21 with options
+		-XA WWW::ContentRetrieval::Utils
+

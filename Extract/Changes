@@ -12,3 +12,6 @@ Revision history for Perl extension WWW::ContentRetrieval::Extract.
 
 0.07 Wed, 12 Feb 2003 18:07:14 +0800
 	- *replace* added
+
+0.08 Fri, 14 Feb 2003 00:16:09 +0800
+	- YAML incorporated
