@@ -4,3 +4,6 @@ Revision history for Perl extension WWW::ContentRetrieval.
 	- original version; created by h2xs 1.21 with options
 		-AX -n WWW::ContentRetrieval
 
+0.02  Sun Feb 02 21:44:56 2003
+	- minor bugs fixed
+

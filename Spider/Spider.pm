@@ -176,7 +176,7 @@ returns a GET-like URL for debugging or other uses, even though request method i
 
 =head1 SEE ALSO
 
-B<WWW::ContentRetrieval>, B<WWW::ContentRetrieval::Extract>, B<LWP>
+L<WWW::ContentRetrieval>, L<WWW::ContentRetrieval::Extract>, L<LWP>
 
 =head1 COPYRIGHT
 

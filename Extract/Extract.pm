@@ -3,7 +3,7 @@ package WWW::ContentRetrieval::Extract;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use HTML::Tree;
 use Data::Dumper;
@@ -52,8 +52,8 @@ sub extract($) {
 
     ### extract links ###
     for(my $i=0; $i<@{$desc->{NEXT}}; $i+=2){
-	my $nexturl = $desc->{NEXT}->[$i];
-	if($nexturl && $thisurl =~ /$nexturl/){
+	my $trigger = $desc->{NEXT}->[$i];
+	if($trigger && $thisurl =~ /$trigger/){
 	    my $p = $desc->{NEXT}->[$i+1];
 	    while($pagetext =~ /$p/g){
 		next unless $1;
@@ -70,23 +70,22 @@ sub extract($) {
 
     for(my $i=0; $i<@{$desc->{POLICY}}; $i+=2){
 	my $pageurl = $desc->{POLICY}->[$i];
+	print "$thisurl, $pageurl\n";
 	if( $pageurl && $thisurl =~ /$pageurl/ ){
 	    ## if there is a callback function, ..
 	    if( ref($desc->{POLICY}->[$i+1]) eq 'CODE' ){
-		return $desc->{POLICY}->[$i+1]->(\$pagetext, $pageurl);
+		my $r = $desc->{POLICY}->[$i+1]->(\$pagetext, $pageurl);
+		push @retarr, @$r;
 	    }
-	    elsif( ref($desc->{POLICY}->[$i+1]) ne 'CODE' ){
+	    else {
                 ### Node expansion ###
 		($nodes, $filter) = loadDESC($desc->{POLICY}->[$i+1]);
-
 		foreach my $n (@$nodes){
 		    undef $output;
-		    my $start;
-		    $start = 0;
 		    foreach my $k (keys %$n){
 			next unless $k;
 			$c = undef;
-			$c = get(\@linevect, $n->{$k}, \$start);
+			$c = get(\@linevect, $n->{$k});
 			$output->{$k} = $c;
 			if( ref $filter->{$k} eq 'CODE' ){
 			    $output->{$k} = $filter->{$k}->( $output->{$k} );
@@ -94,10 +93,10 @@ sub extract($) {
 		    }
 		    push @retarr, $output;
 		}
-		return \@retarr;
 	    }
 	}
     }
+return \@retarr;
 }
 
 # ----------------------------------------------------------------------
@@ -165,17 +164,15 @@ sub get($$;$){
     caller eq __PACKAGE__ or die "It's too private!\n";
     my $linevect = shift;
     my $node     = shift;
-    my $start    = shift || 0;
     my $cont;
 
-    for my $i ($$start..$#$linevect){
+    for my $i (0..$#$linevect){
         if($linevect->[$i] =~ /$node$/){
             my($j) = $i+1;
 	    if($linevect->[$j] && 
 		   $linevect->[$j++]=~/^[\s\t]+"(.*)"$/ ){
                 $cont .= $1;
             }
-	    $$start = $i;
 	    last;
         }
     }
@@ -231,7 +228,7 @@ It looks up the given text for the some node identifier, and returns an anonymou
 
 =head1 SEE ALSO
 
-B<WWW::ContentRetrieval>, B<WWW::ContentRetrieval::Spider>, B<HTML::TreeBuilder>
+L<WWW::ContentRetrieval>, L<WWW::ContentRetrieval::Spider>, L<HTML::TreeBuilder>
 
 =head1 COPYRIGHT
 

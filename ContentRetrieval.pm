@@ -3,7 +3,7 @@ package WWW::ContentRetrieval;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 require WWW::ContentRetrieval::Spider;
 require WWW::ContentRetrieval::Extract;
@@ -155,6 +155,7 @@ sub _retrieve{
 	THISURL => $thisurl,
     })->extract;
 
+    return unless ref $k;
     foreach (@$k){
 	print Dumper $_ if $pkg->{DEBUG};
 	if(exists $_->{DTLURL}){
@@ -208,7 +209,7 @@ L<WWW::ContentRetrieval> combines the power of a www robot and a text analyzer. 
 
 =head2 retrieve
 
-  $s->retrieve() returns an anonymous array of retrieved data.
+  $s->retrieve($query) returns an anonymous array of retrieved data.
 
 You may use Data::Dumper to see it. 
 
