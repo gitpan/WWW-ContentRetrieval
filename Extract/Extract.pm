@@ -2,7 +2,7 @@ package WWW::ContentRetrieval::Extract;
 
 use 5.006;
 use strict;
-our $VERSION = '0.081';
+our $VERSION = '0.082';
 
 use WWW::ContentRetrieval::Utils;
 use Data::Dumper;
@@ -68,6 +68,9 @@ sub extract($) {
 			my ($head, $patt) = ($1, $2);
 			if( $head =~ /^replace\((.+?)\)/o ){
 			    $desc->{ITEMS}->{$entry."_FILTER"}->[$top]->{$1} = $patt;
+			}
+			elsif( $head =~ /^reject\((.+?)\)/o ){
+			    $desc->{ITEMS}->{$entry."_REJECT"}->[$top]->{$1} = $patt;
 			}
 			elsif( $head eq 'match' ){
 			    $desc->{ITEMS}->{$entry."_MATCH"}->[++$top] = $patt;
@@ -147,6 +150,7 @@ return \@retarr;
 sub match_get {
     my ( $pkg, $type, $textref, $pageurl ) = @_;
     my ( @ret, $item, $i );
+    my $reject;
     my $desc = $pkg->{DESC};
     no strict;
 
@@ -163,6 +167,7 @@ sub match_get {
 	    foreach my $idx (0..$#{$desc->{ITEMS}->{$type."_ASSIGN"}}){
 		my $ass = $desc->{ITEMS}->{$type."_ASSIGN"}->[$idx];
 		$item = undef;
+                $reject = 0;
 		foreach my $asskey ( keys %$ass ){
 		    $item->{$asskey} = eval $ass->{$asskey};
                     next L unless $item->{$asskey};
@@ -170,7 +175,13 @@ sub match_get {
 			eval '$item->{$asskey} =~ '.
 			    $desc->{ITEMS}->{$type."_FILTER"}->[$idx]->{$asskey};
 		    }
+		    if( $desc->{ITEMS}->{$type."_REJECT"}->[$idx]->{$asskey} ){
+                        $reject = 1 if( eval '$item->{$asskey} =~ '.
+			    $desc->{ITEMS}->{$type."_REJECT"}->[$idx]->{$asskey} );
+		    }
+                    last if $reject == 1;
 		}
+                next if $reject;
 		$ret[$i++] = $item;
 	    }
 	    $patt =~ /^m(.)(?:.+?)\1(.+)/o;

@@ -2,7 +2,7 @@ package WWW::ContentRetrieval;
 
 use 5.006;
 use strict;
-our $VERSION = '0.083';
+our $VERSION = '0.084';
 
 use WWW::ContentRetrieval::Spider;
 use WWW::ContentRetrieval::Extract;
@@ -237,6 +237,7 @@ Now, suppose the product's query url of "foobar technology" be B<http://foo.bar/
 
   match=m,<img src="(.+?)">,sg
   photo="http://foo.bar/".$item[1]
+  reject(photo)=m/jpg/
  ITEMS
 
  # site's description
