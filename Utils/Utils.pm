@@ -14,7 +14,8 @@ sub transform_desc {
 	foreach my $p (0..$#{$desc->{FETCH}->{$entry}}){
 	    if( $desc->{FETCH}->{$entry}->[$p] =~ /^(.+?)[\t\s]+=>[\t\s]+(.+)$/o ){
 		my ( $patt, $strat ) = ($1, $2);
-		die "Pattern error:($patt)\n" unless $patt =~/^[m\/]/o;
+		die "Pattern error:($patt)\n" unless $patt =~/^[q"'m]/o;
+
 		if( $strat =~ /^\$(.+)/o ){
 		    $strat = eval "\\\$${callpkg}::$1";
 		}

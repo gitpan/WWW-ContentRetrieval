@@ -146,7 +146,7 @@ WWW::ContentRetrieval::Spider is a simplified www useragnet for web page retriev
     URL         => 'http://foo.bar/',
     METHOD      => 'PLAIN',                     # default is 'GET'
     QUERY       => [ querykey, queryvalue ],    # user's query
-    PARAM       => { 'paramA' => 'valueA' ]     # other parameters
+    PARAM       => { 'paramA' => 'valueA' }     # other parameters
     TIMEOUT     => 5,                           # 10 if undef
     USERAGENT   => 'WWW::ContentRetrieval::Spider'      # becomes Mozilla if undef
     HTTP_PROXY  => 'http://foo.bar:2345/',

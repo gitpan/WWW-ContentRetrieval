@@ -12,22 +12,20 @@ sub callback{
 
 
 $items = <<'ITEMS';
-match=(<tr>) (<td>) (.+?)\n
-tr=$1
-td=$2
-language="romance language => ".$3
+match=m/(<tr>) (<td>) (.+?)\n/mg
+tr=$item[1]
+td=$item[2]
+language="romance language => ".$item[3]
 replace(language)=s/l/a/
 ITEMS
 
     $next =<<'NEXT';
-match=<a href="(.+)">.+?</a>
+match=m,<a href="(.+?)">.+?</a>,m
 _DTLURL="http://romance.language/".$1
 NEXT
 
 my $hashref = <<'SETTING';
-
 NAME: romance languages
-
 FETCH:
   URL : 'http://foo.bar/query.pl'
   METHOD: GET
@@ -40,7 +38,6 @@ FETCH:
   NEXT:
    - m/./ => m/<a href="(.+?)">.+<\/a>/
    - m/./ => $next
-
 SETTING
 
 use Data::Dumper;
@@ -73,7 +70,7 @@ $e = WWW::ContentRetrieval::Extract->new(
 					 );
 
 $r = $e->extract;
-#print Dumper $r;
+print Dumper $r;
 ok(1) if $r->[0]->{_DTLURL} =~ /http/;
 ok(1) if $r->[2]->{language} =~ /romance aanguage/;
 ok(1) if $r->[13]->{LINGUA} eq 'portuguese';

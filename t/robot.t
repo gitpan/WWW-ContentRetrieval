@@ -7,11 +7,17 @@ ok(1);
 sub callback {
     my ($textref, $thisurl) = @_;
     my @retarr;
+    push @retarr, { _DTLURL => 'http://www.google.com/intl/zh-TW/help.html' };
     while( $$textref =~ m,<a href=(.+?)>(.+?)</a>,sgi){
 	push @retarr, { URL => $1, NAME => $2 };
     }
     return \@retarr;
 }
+
+$item =<<'...';
+match=m,<a href=(.+?)>(.+?)</a>,sg
+title=$item[1]
+...
 
 
 $robot = new WWW::ContentRetrieval(
@@ -21,9 +27,10 @@ NAME: test
 
 FETCH:
  METHOD: PLAIN
- QHANDL: http://www.google.com/
+ QHANDL: http://www.google.com/intl/zh-TW/
  POLICY:
-  - m/./ => &callback
+  - q"http://www.google.com/intl/zh-TW/" => &callback
+  - m/help/ => $item
 
 SETTING
 );

@@ -2,7 +2,7 @@ package WWW::ContentRetrieval::Extract;
 
 use 5.006;
 use strict;
-our $VERSION = '0.08';
+our $VERSION = '0.081';
 
 use WWW::ContentRetrieval::Utils;
 use Data::Dumper;
@@ -61,7 +61,7 @@ sub extract($) {
 		foreach my $line (
 				  grep{$_}
 				  grep{$_!~/^#/o} 
-				  map{ s/^[\s\t]//go; s/[\s\t]$//go; $_ }
+				  map{ s/^[\s\t]+//o; s/[\s\t]+$//o; $_ }
 				  split( /\n+/o, $$itemref )
 				  ){
 		    if( $line =~ /(.+?)=(.+)/o ){
@@ -89,7 +89,11 @@ sub extract($) {
     ### extract *next* links ###
     for(my $i=0; $next && $i<@{$next}; $i+=2){
 	my $trigger = $next->[$i];
-	if($trigger && $thisurl =~ eval $trigger){
+	if($trigger &&
+	   (
+	    ( $trigger =~ /^m/o && eval "\$thisurl =~ $trigger" ) ||
+	    ( $thisurl eq eval $trigger )
+	   )){
 	    die "Url's pattern error: $trigger $@\n" if $@;
 	    my $p = $next->[$i+1];
 	    if( ref($p) eq 'CODE' ){
@@ -104,7 +108,7 @@ sub extract($) {
 		my $subtext = $pagetext;
 		while($p){
 		    my $c;
-		    eval "\$subtext =~ $p;".'$c = $1; $subtext = $\'';
+		    eval "\$subtext =~ $p;".'$c = $1; $subtext = $\'; ';
 		    die "Url's pattern error: $p $@\n" if $@;
 		    last unless $c;
 		    undef $output;
@@ -120,7 +124,11 @@ sub extract($) {
 
     for(my $i=0; $policy && $i<@{$policy}; $i+=2){
 	my $trigger = $policy->[$i];
-	if( $trigger && $thisurl =~ eval $trigger ) {
+	if( $trigger &&
+	   (
+	    ( $trigger =~ /^m/o && eval "\$thisurl =~ $trigger" ) ||
+	    ( $thisurl eq eval $trigger )
+	   )){
 	    die "Url's pattern error: $trigger $@\n" if $@;
 	    if( ref($policy->[$i+1]) eq 'CODE' ){
 		my $r = $policy->[$i+1]->(\$pagetext, $thisurl);
@@ -135,19 +143,29 @@ sub extract($) {
 return \@retarr;
 }
 
+
 sub match_get {
     my ( $pkg, $type, $textref, $pageurl ) = @_;
     my ( @ret, $item, $i );
     my $desc = $pkg->{DESC};
+    no strict;
 
     foreach my $patt ( @{$desc->{ITEMS}->{$type."_MATCH"}} ){
 	$i = 0;
-	while( $$textref =~ /$patt/sg ){
+	my @item;
+	my $subtext = $$textref;
+	while( $subtext ){
+	    eval '$subtext =~ '.$patt.';
+                  $item[$_] = ${$_} for(1..9);
+                  $subtext = $\'; ';
+	    die "Matching error : $patt\n" if $@;
+           L:
 	    foreach my $idx (0..$#{$desc->{ITEMS}->{$type."_ASSIGN"}}){
 		my $ass = $desc->{ITEMS}->{$type."_ASSIGN"}->[$idx];
 		$item = undef;
 		foreach my $asskey ( keys %$ass ){
 		    $item->{$asskey} = eval $ass->{$asskey};
+                    next L unless $item->{$asskey};
 		    if( $desc->{ITEMS}->{$type."_FILTER"}->[$idx]->{$asskey} ){
 			eval '$item->{$asskey} =~ '.
 			    $desc->{ITEMS}->{$type."_FILTER"}->[$idx]->{$asskey};
@@ -155,6 +173,8 @@ sub match_get {
 		}
 		$ret[$i++] = $item;
 	    }
+	    $patt =~ /^m(.)(?:.+?)\1(.+)/o;
+	    last if( $2 !~ /g/o );
 	}
     }
     \@ret;

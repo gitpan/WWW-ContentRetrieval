@@ -2,7 +2,7 @@ package WWW::ContentRetrieval;
 
 use 5.006;
 use strict;
-our $VERSION = '0.082';
+our $VERSION = '0.083';
 
 use WWW::ContentRetrieval::Spider;
 use WWW::ContentRetrieval::Extract;
@@ -230,13 +230,13 @@ Now, suppose the product's query url of "foobar technology" be B<http://foo.bar/
 
  # a small processing language
  $items = <<'ITEMS';
-  match=<a href="(.+?)">(.+)</a>
-  site=$1
-  url=$2
+  match=m,<a href="(.+?)">(.+)</a>,sg
+  site=$item[1]
+  url=$item[2]
   replace(url)=s/http/ptth/
 
-  match=<img src="(.+?)">
-  photo="http://foo.bar/".$1
+  match=m,<img src="(.+?)">,sg
+  photo="http://foo.bar/".$item[1]
  ITEMS
 
  # site's description
@@ -254,7 +254,7 @@ Now, suppose the product's query url of "foobar technology" be B<http://foo.bar/
     - m/foo\.bar/ => &callback
    NEXT:
     - m/./ => m/<a href="(.+?)">.+<\/a>/
-    - m/./ => $next
+    - q'http://foo.bar/query.pl' => $next
  ...
 
 =head2 NAME
@@ -263,19 +263,19 @@ Name of the site.
 
 =head2 POLICY
 
-POLICY stores information for a certain page's extraction. It is composed of pairs of (this url's pattern => callback function) or (this url's pattern => retrieval settings). If the current url matches /this pattern/, then this modules will invoke the corresponding callback or extract data according to the retrieval settings given by users.
+POLICY stores information for a certain page's extraction. It is composed of pairs of (this url's pattern => callback function) or (this url's pattern => retrieval settings). If the current url matches /this pattern/, then this modules will invoke the corresponding callback or extract data according to the retrieval settings given by users. And remember that regular expressions must be initialed with C<m>, or it will produce an error.
 
 In simple cases, users only need to write down the retrieval settings instead of a callback function. Retrieval settings contains lines of instructions in a /key=value/ format. Here's an example.
 
  # use a leading # for comment
  $setting=<<'SETTING';
- match=<a href="(.+?)">(.+?)</a>
- url=$1
- desc="<".$2.">"
+ match=m,<a href="(.+?)">(.+?)</a>,sg
+ url=$item[1]
+ desc="<".$item[2].">"
  replace(url)=s/http/ptth/;
  SETTING
 
-Then the module will try to match the pattern in the retrieved page, and assigns the keys with matched values. And, B<replace> follows a substitution matcher, which can transform the specified extracted data.
+Then the module will try to match the pattern in the retrieved page, and assigns the keys with matched values. Captured variables will be stored in an array called C<@item>, whose index counts from 1 to 9. Then, B<replace> follows a substitution matcher, which can refine extracted data.
 
 If users have to write callback functions for more complex cases, here is the guideline:
 
