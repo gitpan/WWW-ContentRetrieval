@@ -12,7 +12,6 @@ sub transform_desc {
     my ($callpkg, $desc) = @_;
     foreach my $entry (qw/POLICY NEXT/){
 	foreach my $p (0..$#{$desc->{FETCH}->{$entry}}){
-	    print $desc->{FETCH}->{$entry}->[$p];
 	    if( $desc->{FETCH}->{$entry}->[$p] =~ /^(.+?)[\t\s]+=>[\t\s]+(.+)$/o ){
 		my ( $patt, $strat ) = ($1, $2);
 		die "Pattern error:($patt)\n" unless $patt =~/^[m\/]/o;
@@ -31,8 +30,6 @@ sub transform_desc {
 	}
 	$desc->{FETCH}->{$entry} = $desc->{FETCH}->{"_$entry"};
     }
-    print Dumper $desc;
-
 }
 
 

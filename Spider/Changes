@@ -4,3 +4,5 @@ Revision history for Perl extension WWW::ContentRetrieval::Spider.
 	- original version; created by h2xs 1.21 with options
 		-AX -n WWW::ContentRetrieval::Spider
 
+0.03  Fri, 14 Feb 2003 01:47:01 +0800
+	- param's format: array => hash

@@ -2,7 +2,7 @@ package WWW::ContentRetrieval;
 
 use 5.006;
 use strict;
-our $VERSION = '0.08';
+our $VERSION = '0.082';
 
 use WWW::ContentRetrieval::Spider;
 use WWW::ContentRetrieval::Extract;
@@ -25,7 +25,7 @@ sub genDescTmpl(){
 NAME: site's name
 
 FETCH:
- URL : 'http://foo.bar/query.pl'
+ QHANDL : 'http://foo.bar/query.pl'
  METHOD: GET
  PARAM:
    encoding : UTF8
@@ -52,7 +52,6 @@ sub new($$;$){
     my($justhaveit);
     $desc = Load($desc);
     transform_desc($callpkg, $desc);
-    print Dumper $desc;
     bless{
 	CALLPKG    => $callpkg,
 	DESC       => $desc->{FETCH},
@@ -245,7 +244,7 @@ Now, suppose the product's query url of "foobar technology" be B<http://foo.bar/
  NAME: site's name
 
  FETCH:
-   URL : 'http://foo.bar/query.pl'
+   QHANDL : 'http://foo.bar/query.pl'
    METHOD: GET
    PARAM:
     encoding : UTF8

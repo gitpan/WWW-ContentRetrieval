@@ -16,5 +16,4 @@ t/robot.t
 Utils/Changes
 Utils/Makefile.PL
 Utils/MANIFEST
-Utils/test.pl
 Utils/Utils.pm

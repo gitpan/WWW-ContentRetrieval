@@ -2,7 +2,7 @@ package WWW::ContentRetrieval::Spider;
 
 use 5.006;
 use strict;
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 use strict;
 use LWP::UserAgent;
@@ -49,7 +49,7 @@ sub content {
 	$response->is_success or return;
     }
     elsif($pkg->{METHOD} eq "GET"){
-	my$paramstr=join(q/&/, map { qq/$_->[0]=$_->[1]/ }@{$pkg->{PARAM}});
+	my$paramstr=join(q/&/, map { qq/$_=${$pkg->{PARAM}}{$_}/ } keys %{$pkg->{PARAM}});
 	$url=join( q//, "$pkg->{URL}?",
 		   qq/$pkg->{QUERY}->[0]=$pkg->{QUERY}->[1]/,
 		   $paramstr? q/&/.$paramstr : undef);
@@ -59,13 +59,13 @@ sub content {
 	$response->is_success or return;
     }
     elsif($pkg->{METHOD} eq "POST"){
-	$request = POST ($pkg->{URL}=>
+	$request = POST ($pkg->{URL} =>
 			 [
 			  $pkg->{QUERY}->[0] => $pkg->{QUERY}->[1],
-			  map {$_->[0] => $_->[1]} @{$pkg->{PARAM}}
+			  map { $_ => $pkg->{PARAM}->{$_} } keys %{$pkg->{PARAM}}
 			  ],
 			 );
-	my$paramstr=join(q/&/,map { qq/$_->[0]=$_->[1]/ }@{$pkg->{PARAM}});
+           my $paramstr=join(q/&/,  map { qq/$_=${$pkg->{PARAM}}{$_}/ } keys %{$pkg->{PARAM}});
 	if($pkg->{DEBUG}){
 	    $url=join( q//, "$pkg->{URL}?",
 			 qq/$pkg->{QUERY}->[0]=$pkg->{QUERY}->[1]/,
@@ -102,7 +102,7 @@ sub queryURL {
 	return $arg->{URL};
     }
     elsif($arg->{METHOD} eq "GET" || $arg->{METHOD} eq "POST"){
-	my$paramstr=join(q/&/, map { qq/$_->[0]=$_->[1]/ }@{$arg->{PARAM}});
+	my$paramstr=join(q/&/, map { qq/$_=/.($arg->{PARAM}->{$_}) } keys %{$arg->{PARAM}});
 	my$url=join( q//, $arg->{URL}, q/?/,
 			qq/$arg->{QUERY}->[0]=$arg->{QUERY}->[1]/,
 			$paramstr? q/&/.$paramstr : undef);
@@ -126,8 +126,8 @@ WWW::ContentRetrieval::Spider - Simplified WWW User Agent
   $s = new WWW::ContentRetrieval::Spider({
     URL         => 'http://foo.bar/',
     METHOD      => 'PLAIN',
-    PARAM       => [ [ 'paramA', 'valueA' ] ],
-    QUERY       => [ querykey, queryvalue],
+    PARAM       => { 'paramA', 'valueA' },
+    QUERY       => [ querykey, queryvalue ],
     HTTP_PROXY  => 'http://foo.bar:2345/',
     TIMEOUT     => 10,
   });
@@ -146,7 +146,7 @@ WWW::ContentRetrieval::Spider is a simplified www useragnet for web page retriev
     URL         => 'http://foo.bar/',
     METHOD      => 'PLAIN',                     # default is 'GET'
     QUERY       => [ querykey, queryvalue ],    # user's query
-    PARAM       => [ [ 'paramA', 'valueA' ] ]   # other parameters
+    PARAM       => { 'paramA' => 'valueA' ]     # other parameters
     TIMEOUT     => 5,                           # 10 if undef
     USERAGENT   => 'WWW::ContentRetrieval::Spider'      # becomes Mozilla if undef
     HTTP_PROXY  => 'http://foo.bar:2345/',
@@ -167,7 +167,7 @@ $s->content_to_file(FILENAME) dumps content to a file
   WWW::ContentRetrieval::Spider::queryURL({
       URL         => $url,
       METHOD      => 'POST,
-      PARAM       => [ [ 'paramA', 'valueA' ] ],
+      PARAM       => { 'paramA', 'valueA' },
       QUERY       => [ querykey, queryvalue],
   });
 
