@@ -3,7 +3,7 @@ package WWW::ContentRetrieval;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 require WWW::ContentRetrieval::Spider;
 require WWW::ContentRetrieval::Extract;
@@ -159,15 +159,14 @@ sub _retrieve{
     foreach (@$k){
 	print Dumper $_ if $pkg->{DEBUG};
 	if(exists $_->{DTLURL}){
-	    if($_->{DTLURL} =~ /^http:/){
-		push @{$pkg->{SPOOL}},['PLAIN', $_->{DTLURL} ];
-	    }
-	    else{
+	    if($_->{DTLURL} !~ /^http:/){
 		$_->{DTLURL} = URI->new_abs($_->{DTLURL}, $thisurl)->as_string;
-		push @{$pkg->{SPOOL}},['PLAIN', $_->{DTLURL} ];
 	    }
+	    push @{$pkg->{SPOOL}},['PLAIN', $_->{DTLURL} ];
 	}
-	push @{$pkg->{BEEF}}, $_;
+        elsif(!exists $_->{DTLURL} || (scalar keys %$_) > 1){
+	    push @{$pkg->{BEEF}}, $_;
+        }
     }
 }
 
@@ -286,6 +285,8 @@ FILTER is left to users to write callback functions handling retrieved data, suc
 
 Except NODE_NAME and STARTING_NODE, all of them are optional.
 
+If users append ! to the tail of STARTING_NODE, L<WWW::ContentRetrieval::Extract> will extract the subtree hanging on the STARTING_NODE.
+
 =over 1
 
 =item * POLICY example
@@ -317,7 +318,7 @@ E.g.
       return an array of hashes, with keys and extracted information.
   }
 
-See also L<t/extract.pl>, L<t/robot.pl>
+See also L<t/extract.t>, L<t/robot.t>, L<t/recget.t>
 
 
 =head2 METHOD

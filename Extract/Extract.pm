@@ -3,7 +3,7 @@ package WWW::ContentRetrieval::Extract;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 use HTML::Tree;
 use Data::Dumper;
@@ -61,16 +61,17 @@ sub extract($) {
 		$c = $1;
 		$c = URI->new_abs($c, $thisurl)->as_string if($c !~ /^http:/o);
 		$output->{DTLURL} = $c;
-		push @retarr, $output;
+		print "$thisurl $trigger $c\n";
+		push @retarr, $output if $c;
 	    }
 	}
     }
-    my ($nodes, @linevect, $filter);
-    @linevect = split /\n/o, WWW::ContentRetrieval::bldTree($pagetext);
+
+    my ($nodes, @linevect, $filter, $getmethod);
+    @linevect = split /\n/o,WWW::ContentRetrieval::bldTree($pagetext) if @{$desc->{POLICY}};
 
     for(my $i=0; $i<@{$desc->{POLICY}}; $i+=2){
 	my $pageurl = $desc->{POLICY}->[$i];
-	print "$thisurl, $pageurl\n";
 	if( $pageurl && $thisurl =~ /$pageurl/ ){
 	    ## if there is a callback function, ..
 	    if( ref($desc->{POLICY}->[$i+1]) eq 'CODE' ){
@@ -79,15 +80,15 @@ sub extract($) {
 	    }
 	    else {
                 ### Node expansion ###
-		($nodes, $filter) = loadDESC($desc->{POLICY}->[$i+1]);
+		($nodes, $filter, $getmethod) = loadDESC($desc->{POLICY}->[$i+1]);
 		foreach my $n (@$nodes){
 		    undef $output;
 		    foreach my $k (keys %$n){
 			next unless $k;
 			$c = undef;
-			$c = get(\@linevect, $n->{$k});
+			$c = $getmethod->{$k}->(\@linevect, $n->{$k});
 			$output->{$k} = $c;
-			if( ref $filter->{$k} eq 'CODE' ){
+			if( ref $filter->{$k} ){
 			    $output->{$k} = $filter->{$k}->( $output->{$k} );
 			}
 		    }
@@ -102,14 +103,14 @@ return \@retarr;
 # ----------------------------------------------------------------------
 # Cartesian Expansion
 # ----------------------------------------------------------------------
-sub cart($$$$){
+sub cart{
     caller eq __PACKAGE__ or die "It's too private!\n";
     my ($s, $i, $p, $e) = @_; # (starting, changing index, stepsize, ending)
-    return unless @$i == @$p;
+    return unless @$i == @$p && @$i == @$e;
     my $c = 0;
     my (@r);
     push @r, join q/./, @$s;
-  EXPANSION:
+
     while(1){
 	last unless @$e;
         $s->[$i->[-1]] += $p->[-1];
@@ -132,45 +133,53 @@ sub cart($$$$){
 # ----------------------------------------------------------------------
 # Loading desc
 # ----------------------------------------------------------------------
+use subs qw/get recget/;
+
 sub loadDESC($) {
     caller eq __PACKAGE__ or die "It's too private!\n";
     my($h) = shift;
-    my($sidx, $sdif, $LBD, $UBD, $th, $ft);
+    my($sidx, $sdif, $LBD, $UBD, $th, $ft, $gm);
+
     for my$C (@$h){
-	unless( defined $C->[2] && defined $C->[3] && defined $C->[4] ){
-	    $th->[0]->{$C->[0]} = $C->[1];
+	$gm->{$C->[0]} = ( $C->[1] =~ /!$/o ) ? \&recget : \&get;
+
+	$LBD=[ split /\./o, $C->[1] ];
+	$LBD->[$#$LBD] =~ s/!$//o;
+
+	# callback binding
+	$ft->{$C->[0]} = $C->[5] if ref $C->[5] eq 'CODE';
+
+	unless( ref $C->[2] && ref $C->[3] && ref $C->[4] ){
+	    $th->[0]->{$C->[0]} = join q/./, @$LBD;
 	    next;
 	}
-	$sidx = $C->[2], $sdif = $C->[3], $UBD = $C->[4];
-	$LBD=[ split /\./o, $C->[1] ];
+
+	( $sidx, $sdif, $UBD ) = @{$C}[2..4];
 
 	my($IV)=cart($LBD, $sidx, $sdif, $UBD);
 	my $cnt = 0;
-	for( @$IV){
-	    $th->[$cnt++]->{$C->[0]} = $_;
-	    if( defined $C->[5]){
-		$ft->{$C->[0]} = $C->[5];
-	    }
+	for my $entry ( @$IV ){
+	    $th->[$cnt++]->{$C->[0]} = $entry;
 	}
     }
-($th, $ft)
+
+($th, $ft, $gm)
 }
 
 
 # ----------------------------------------------------------------------
 # Retrieving text at some node
 # ----------------------------------------------------------------------
-sub get($$;$){
+sub get($$){
     caller eq __PACKAGE__ or die "It's too private!\n";
     my $linevect = shift;
     my $node     = shift;
     my $cont;
 
     for my $i (0..$#$linevect){
-        if($linevect->[$i] =~ /$node$/){
+        if($linevect->[$i] =~ /\@$node$/){
             my($j) = $i+1;
-	    if($linevect->[$j] && 
-		   $linevect->[$j++]=~/^[\s\t]+"(.*)"$/ ){
+	    if($linevect->[$j] && $linevect->[$j]=~/^[\s\t]+"(.*)"$/ ){
                 $cont .= $1;
             }
 	    last;
@@ -180,6 +189,26 @@ sub get($$;$){
 $cont
 }
 
+# ----------------------------------------------------------------------
+# Retrieving subtree hanging on some node
+# ----------------------------------------------------------------------
+sub recget($$) {
+    caller eq __PACKAGE__ or die "It's too private!\n";
+    my $linevect = shift;
+    my $node     = shift;
+    my $cont;
+
+    for my $i (0..$#$linevect){
+        if($linevect->[$i] =~ /\@$node(?:\..+)?$/){
+            my($j) = $i+1;
+	    if($linevect->[$j] && $linevect->[$j]=~/^[\s\t]+"(.*)"$/ ){
+                $cont .= $1;
+            }
+        }
+    }
+
+$cont
+}
 
 1;
 __END__

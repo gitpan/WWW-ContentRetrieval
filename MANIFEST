@@ -16,3 +16,4 @@ Spider/Spider.pm
 t/extract.t
 t/spider.t
 t/robot.t
+t/recget.t
