@@ -2,7 +2,7 @@ package WWW::ContentRetrieval;
 
 use 5.006;
 use strict;
-our $VERSION = '0.084';
+our $VERSION = '0.085';
 
 use WWW::ContentRetrieval::Spider;
 use WWW::ContentRetrieval::Extract;

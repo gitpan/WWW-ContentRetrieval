@@ -19,9 +19,14 @@ language="romance language => ".$item[3]
 replace(language)=s/l/a/
 ITEMS
 
+$items2 = <<'ITEMS';
+match=m/<tr> <td> (.+)/mg
+language="lingua => ".$item[1]
+ITEMS
+
     $next =<<'NEXT';
 match=m,<a href="(.+?)">.+?</a>,m
-_DTLURL="http://romance.language/".$1
+_DTLURL="http://romance.language/".$item[1]
 NEXT
 
 my $hashref = <<'SETTING';
@@ -34,9 +39,9 @@ FETCH:
   KEY: product
   POLICY:
    - m/romance\.language/ => $items
+   - m/romance\.language/ => $items2
    - m/romance\.language/ => &callback
   NEXT:
-   - m/./ => m/<a href="(.+?)">.+<\/a>/
    - m/./ => $next
 SETTING
 
@@ -73,4 +78,4 @@ $r = $e->extract;
 print Dumper $r;
 ok(1) if $r->[0]->{_DTLURL} =~ /http/;
 ok(1) if $r->[2]->{language} =~ /romance aanguage/;
-ok(1) if $r->[13]->{LINGUA} eq 'portuguese';
+ok(1) if $r->[13]->{LINGUA} eq 'latin';

@@ -2,7 +2,7 @@ package WWW::ContentRetrieval::Extract;
 
 use 5.006;
 use strict;
-our $VERSION = '0.082';
+our $VERSION = '0.083';
 
 use WWW::ContentRetrieval::Utils;
 use Data::Dumper;
@@ -89,6 +89,8 @@ sub extract($) {
 	$desc->{$entry."_PARSED"} = 1;
     }
 
+
+	print Dumper $desc;
     ### extract *next* links ###
     for(my $i=0; $next && $i<@{$next}; $i+=2){
 	my $trigger = $next->[$i];
@@ -104,7 +106,7 @@ sub extract($) {
 		push @retarr, @$r;
 	    }
 	    elsif( ref($p) eq 'SCALAR' ){
-		my $r = $pkg->match_get( 'NEXT', \$pagetext, $thisurl );
+		my $r = $pkg->match_get( 'NEXT', \$pagetext, $thisurl, $i/2 );
 		push @retarr, @$r;
 	    }
 	    else{
@@ -138,7 +140,7 @@ sub extract($) {
 		push @retarr, @$r;
 	    }
 	    elsif( ref($policy->[$i+1]) eq 'SCALAR' ){
-		my $r = $pkg->match_get( 'POLICY', \$pagetext, $thisurl );
+		my $r = $pkg->match_get( 'POLICY', \$pagetext, $thisurl, $i/2 );
 		push @retarr, @$r;
 	    }
 	}
@@ -148,45 +150,51 @@ return \@retarr;
 
 
 sub match_get {
-    my ( $pkg, $type, $textref, $pageurl ) = @_;
-    my ( @ret, $item, $i );
+    my ( $pkg, $type, $textref, $pageurl, $idx ) = @_;
+    my ( @ret, $item );
     my $reject;
     my $desc = $pkg->{DESC};
     no strict;
 
-    foreach my $patt ( @{$desc->{ITEMS}->{$type."_MATCH"}} ){
-	$i = 0;
-	my @item;
-	my $subtext = $$textref;
-	while( $subtext ){
-	    eval '$subtext =~ '.$patt.';
-                  $item[$_] = ${$_} for(1..9);
-                  $subtext = $\'; ';
-	    die "Matching error : $patt\n" if $@;
-           L:
-	    foreach my $idx (0..$#{$desc->{ITEMS}->{$type."_ASSIGN"}}){
-		my $ass = $desc->{ITEMS}->{$type."_ASSIGN"}->[$idx];
-		$item = undef;
-                $reject = 0;
-		foreach my $asskey ( keys %$ass ){
-		    $item->{$asskey} = eval $ass->{$asskey};
-                    next L unless $item->{$asskey};
-		    if( $desc->{ITEMS}->{$type."_FILTER"}->[$idx]->{$asskey} ){
-			eval '$item->{$asskey} =~ '.
-			    $desc->{ITEMS}->{$type."_FILTER"}->[$idx]->{$asskey};
-		    }
-		    if( $desc->{ITEMS}->{$type."_REJECT"}->[$idx]->{$asskey} ){
-                        $reject = 1 if( eval '$item->{$asskey} =~ '.
-			    $desc->{ITEMS}->{$type."_REJECT"}->[$idx]->{$asskey} );
-		    }
-                    last if $reject == 1;
-		}
-                next if $reject;
-		$ret[$i++] = $item;
-	    }
-	    $patt =~ /^m(.)(?:.+?)\1(.+)/o;
-	    last if( $2 !~ /g/o );
-	}
+    my $patt = $desc->{ITEMS}->{$type."_MATCH"}->[$idx];
+    print $patt,$/;
+    my @item;
+    my $subtext = $$textref;
+    my $nextloop;
+    while( $subtext ){
+	print $patt, $/;
+	$nextloop = 0;
+	eval
+	    'if($subtext =~ '.$patt.'){
+              $item[$_] = ${$_} for(1..9);
+             }
+             else {
+		 $nextloop = 1;
+             }
+             $subtext = $\';
+	';
+        next if $nextloop;
+
+           my $ass = $desc->{ITEMS}->{$type."_ASSIGN"}->[$idx];
+           $item = undef;
+           $reject = 0;
+           foreach my $asskey ( keys %$ass ){
+             $item->{$asskey} = eval $ass->{$asskey};
+             last unless $item->{$asskey};
+	     if( $desc->{ITEMS}->{$type."_FILTER"}->[$idx]->{$asskey} ){
+		eval '$item->{$asskey} =~ '.
+		    $desc->{ITEMS}->{$type."_FILTER"}->[$idx]->{$asskey};
+                die "Filter error\n" if $@;
+             }
+ 	     if( $desc->{ITEMS}->{$type."_REJECT"}->[$idx]->{$asskey} ){
+                 $reject = 1 if( eval '$item->{$asskey} =~ '.
+		     $desc->{ITEMS}->{$type."_REJECT"}->[$idx]->{$asskey} );
+                die "Rejection error\n" if $@;
+	     }
+           }
+           push @ret, $item unless $reject;
+           $patt =~ /^m(.)(?:.+?)\1(.+)/o;
+           last if( $2 !~ /g/o );
     }
     \@ret;
 }
