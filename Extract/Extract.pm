@@ -90,7 +90,6 @@ sub extract($) {
     }
 
 
-	print Dumper $desc;
     ### extract *next* links ###
     for(my $i=0; $next && $i<@{$next}; $i+=2){
 	my $trigger = $next->[$i];
@@ -157,12 +156,10 @@ sub match_get {
     no strict;
 
     my $patt = $desc->{ITEMS}->{$type."_MATCH"}->[$idx];
-    print $patt,$/;
     my @item;
     my $subtext = $$textref;
     my $nextloop;
     while( $subtext ){
-	print $patt, $/;
 	$nextloop = 0;
 	eval
 	    'if($subtext =~ '.$patt.'){
