@@ -1,17 +1,15 @@
 Changes
+ContentRetrieval.pm
 Extract/Changes
 Extract/Extract.pm
 Extract/MANIFEST
 Extract/Makefile.PL
-Extract/README
-MANIFEST
+MANIFEST			This list of files
 Makefile.PL
 README
-ContentRetrieval.pm
 Spider/Changes
 Spider/MANIFEST
 Spider/Makefile.PL
-Spider/README
 Spider/Spider.pm
 t/extract.t
 t/robot.t

@@ -1,5 +1,5 @@
 use Test;
-BEGIN { plan tests => 2 };
+BEGIN { plan tests => 3 };
 use WWW::ContentRetrieval;
 
 ok(1);
@@ -11,12 +11,24 @@ sub callback {
     $ret;
 }
 
+$items = <<'ITEMS';
+
+match=(<tr>) (<td>) (.+?)\n
+tr=$1
+td=$2
+language="romance language => ".$3
+
+ITEMS
+
 $desc = {
     romance =>
     {
         NAME => "romance",
         NEXT => [ ],
-        POLICY =>[ 'romance\.language' => \&callback ],
+        POLICY =>[
+		  'romance\.language' => \&callback,
+		  'romance\.language' => \$items,
+		  ],
         METHOD => 'PLAIN',
     },
 
@@ -37,7 +49,7 @@ $e = WWW::ContentRetrieval::Extract->new({
 
 print Dumper $e->extract;
 ok('spanish', $e->extract->[3]->{LINGUA});
-
+ok('romance language => latin', $e->extract->[6]->{language});
 
 __DATA__
 <html>

@@ -9,3 +9,6 @@ Revision history for Perl extension WWW::ContentRetrieval.
 
 0.05a Fri, 7 Feb 2003 14:28:13 +0800
         - no HTML::TreeBuilder
+
+0.06 Mon, 10 Feb 2003 22:27:08 +0800
+	- regexp retrival settings

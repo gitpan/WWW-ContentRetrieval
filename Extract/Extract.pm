@@ -2,8 +2,7 @@ package WWW::ContentRetrieval::Extract;
 
 use 5.006;
 use strict;
-use warnings;
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 use Data::Dumper;
 use URI;
@@ -34,6 +33,35 @@ sub extract($) {
     my (%output);
     my ($type, $urlpatt, $nextpatt);
 
+    ### parse the item settings ###
+    unless ( $desc->{ITEMS_PARSED} ){
+	for(my $i=0; $i<@{$desc->{POLICY}}; $i+=2){
+	    if( ref $desc->{POLICY}->[$i+1] eq 'SCALAR' ){
+		my $itemref = $desc->{POLICY}->[$i+1];
+		my $top = -1;
+		foreach my $line (
+				  grep{$_} grep{$_!~/^#/o} 
+				  map{ s/^[\s\t]//go; s/[\s\t]$//go; $_ }
+				  split( /\n+/o, $$itemref )
+				  ){
+		    if( $line =~ /(.+?)=(.+)/o ){
+			if( $1 eq 'match' ){
+			    $desc->{ITEMS}->{ITEMS_MATCH}->[++$top] = $2;
+			}
+			else {
+			    $desc->{ITEMS}->{ITEMS_ASSIGN}->[$top]->{$1} = $2 if $top >= 0;
+			}
+		    }
+		    else {
+			die "Your item setting might be wrong\n";
+		    }
+		}
+
+	    }
+	}
+	$desc->{ITEMS_PARSED} = 1;
+    }
+
     ### extract links ###
     for(my $i=0; $i<@{$desc->{NEXT}}; $i+=2){
 	my $trigger = $desc->{NEXT}->[$i];
@@ -54,14 +82,38 @@ sub extract($) {
 
     for(my $i=0; $i<@{$desc->{POLICY}}; $i+=2){
 	my $pageurl = $desc->{POLICY}->[$i];
-	if( $pageurl && $thisurl =~ /$pageurl/ && ref($desc->{POLICY}->[$i+1]) eq 'CODE' ){
-	    my $r = $desc->{POLICY}->[$i+1]->(\$pagetext, $pageurl);
-	    push @retarr, @$r;
+	if( $pageurl && $thisurl =~ /$pageurl/ ) {
+
+	    if( ref($desc->{POLICY}->[$i+1]) eq 'CODE' ){
+		my $r = $desc->{POLICY}->[$i+1]->(\$pagetext, $pageurl);
+		push @retarr, @$r;
+	    }
+	    elsif( ref($desc->{POLICY}->[$i+1]) eq 'SCALAR' ){
+		my $r = $pkg->match_get( \$pagetext, $pageurl );
+		push @retarr, @$r;
+	    }
 	}
     }
 return \@retarr;
 }
 
+sub match_get {
+    my ( $pkg, $textref, $pageurl ) = @_;
+    my ( @ret, $item, $i );
+    foreach my $patt ( @{$pkg->{DESC}->{ITEMS}->{ITEMS_MATCH}} ){
+	$i = 0;
+	while( $$textref =~ /$patt/sg ){
+	    foreach my $ass ( @{$pkg->{DESC}->{ITEMS}->{ITEMS_ASSIGN}} ){
+		$item = undef;
+		foreach my $asskey ( keys %$ass ){
+		    $item->{$asskey} = eval $ass->{$asskey};
+		}
+		$ret[$i++] = $item;
+	    }
+	}
+    }
+    \@ret;
+}
 
 
 1;

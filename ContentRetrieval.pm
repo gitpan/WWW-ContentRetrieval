@@ -2,11 +2,10 @@ package WWW::ContentRetrieval;
 
 use 5.006;
 use strict;
-use warnings;
-our $VERSION = '0.05b';
+our $VERSION = '0.06';
 
-require WWW::ContentRetrieval::Spider;
-require WWW::ContentRetrieval::Extract;
+use WWW::ContentRetrieval::Spider;
+use WWW::ContentRetrieval::Extract;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw(genDescTmpl);
@@ -220,14 +219,26 @@ Users can do it in a command line,
 Currently, this module uses Perl's native anonymous array and hash for users to write down site descriptions. Let's see an example.
 
 Suppose the product's query url of "foobar technology" be B<http://foo.bar/query.pl?encoding=UTF8&product=blahblahblah>, then the description is like the following: 
+
+ $items = <<'ITEMS';
+
+  match=<a href="(.+?)">(.+)</a>
+  site=$1
+  url=$2
+
+  match=<img src="(.+?)">
+  photo="http://foo.bar/".$1
+
+ ITEMS
+
  $desc ={
     NAME => "foobar tech.",
     NEXT => [
      'query.pl' => 'detail.pl',
     ],
     POLICY => [
-      'http://foo.bar/foobarproduct.pl'
-        => \&extraction_callback,
+      'http://foo.bar/foobar_product.pl' => \&extraction_callback,
+      'http://foo.bar/product_detail.pl' => \$items,
     ],
     METHOD => 'GET',
     QHANDL => 'http://foo.bar/query.pl',
@@ -247,7 +258,20 @@ NEXT is an anonymous array containing pairs of (this pattern => next pattern). I
 
 =head2 POLICY
 
-POLICY is an anonymous array containing pairs of (this pattern => callback). If the current url matches /this pattern/, then the corresponding callback will be invoked.
+POLICY stores information for a certain page's extraction. It is composed of pairs of (this url's pattern => callback function) or (this url's pattern => reference to retrieval settings). If the current url matches /this pattern/, then this modules will invoke the corresponding callback or extract data according to the retrieval settings given by users.
+
+In simple cases, users only need to write down the retrieval settings instead of a callback function. Retrieval settings contains lines of instructions in a /key=value/ format. Here's an example.
+
+ $setting=<<'SETTING';
+ match=<a href="(.+?)">(.+?)</a>
+ url=$1
+ desc="<".$2.">"
+ SETTING
+
+Then the module will try to match the pattern in the retrieved page, and assigns the keys with matched values.
+
+
+If users have to write callback functions for more complex cases, here is the guideline:
 
 L<WWW::ContentRetrieval> passes two parameters to a callback function: a reference to page's content and page's url.
 
