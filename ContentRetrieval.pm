@@ -2,58 +2,64 @@ package WWW::ContentRetrieval;
 
 use 5.006;
 use strict;
-our $VERSION = '0.087';
+our $VERSION = '0.09';
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT = qw(genDescTmpl);
+our @EXPORT = qw(gentmpl);
 
 
 use WWW::ContentRetrieval::Spider;
 use WWW::ContentRetrieval::Extract;
 use WWW::ContentRetrieval::Utils;
+use WWW::ContentRetrieval::CRL;
 
 use Data::Dumper;
 use URI;
 use Digest::MD5 qw/md5/;
-use YAML;
 
 # ----------------------------------------------------------------------
 # Generating description template
 # ----------------------------------------------------------------------
-sub genDescTmpl(){
-    <<'TMPL';
+sub gentmpl(){
+    my $tmpl = <<'TMPL';
+ =crl foobar
 
-sub callback {
+ =fetch
+
+ =url http://foo.bar/
+
+ =method PLAIN
+
+ =case m/./
+
+product
+
+ =policy product
+
+mainmatch=m,<a href=(["'])(.+?)\1>(.+?)</a>,sg
+link=$2
+name=$3
+export=link name
+
+ =policy nexturls
+
+mainmatch=m,<a href=(.+?)>.+</a>
+_DTLURL="http://foo.bar/".$1
+export _DTLURL
+
+ =callback c_a_llback
+
+sub {
     my ($textref, $thisurl) = @_;
 }
 
-$items = <<'...';
-match=m//sg
-item1=$item[1]
-item2=$item[2]
-replace(url)=s///
-reject(url)=m//
-...
-
-$desc = <<'...';
-NAME: site's name
-
-FETCH:
- QHANDL : 'http://foo.bar/query.pl'
- METHOD: GET
- PARAM:
-   encoding : UTF8
- KEY: product
- POLICY:
-  - m/foo\.bar/ => $items
-  - m/foo\.bar/ => &callback
- NEXT:
-  - m/./ => m/<a href="(.+?)">.+<\/a>/
-  - m/./ => $next
-...
+ =lrc
 
 TMPL
+
+    $tmpl =~ s/^ =(.+)/=$1/mog;
+$tmpl;
 }
 
 
@@ -66,14 +72,14 @@ sub new {
     my($arg);
     if(@_==1){	$arg->{DESC} = shift;    }
     else {	$arg = ref($_[0]) ? shift : {@_};    }
-
     my($callpkg) = caller(0);
     my($justhaveit, $desc);
-    $desc = Load($arg->{DESC});
-    transform_desc($callpkg, $desc);
+
+    $desc = transform_desc($callpkg, parse $arg->{DESC});
+
     bless{
 	CALLPKG    => $callpkg,
-	DESC       => $desc->{FETCH},
+	DESC       => $desc,
 	EXTR       => $desc,
 	SPOOL      => undef,       # URL queue
 	BEEF       => undef,       # desired info
@@ -102,11 +108,12 @@ sub feed{
 sub retrieve{
     my($pkg) = shift;
     $pkg->{QUERY} = shift;
+    my $desc = $pkg->{DESC};
+    my $fetch = $pkg->{DESC}->{fetch};
     $pkg->feed({
-	       URL         => $pkg->{DESC}->{QHANDL},
-	       METHOD      => $pkg->{DESC}->{METHOD},
-	       PARAM       => $pkg->{DESC}->{PARAM},
-	       QUERY       => [ $pkg->{DESC}->{KEY} , $pkg->{QUERY} ],
+	       URL         => $fetch->{url},
+	       METHOD      => $fetch->{method},
+	       PARAM       => $fetch->{param},
 	       });
 
     do{	$pkg->_retrieve() } while @{$pkg->{SPOOL}};
@@ -123,21 +130,31 @@ sub _retrieve{
     my($pkg)=shift;
     my($food) = shift @{$pkg->{SPOOL}};
     my($method, $url) = @$food;
+    my($fetch) = $pkg->{DESC}->{fetch};
 
     return unless $url;
+
+
+    if(ref($fetch->{param}) eq 'HASH'){
+	foreach (keys %{$fetch->{param}}){
+	    if($_ eq $fetch->{key}){
+		$fetch->{param}->{$_} = $pkg->{QUERY};
+	    }
+	}
+    }
+    elsif(ref($fetch->{param}) eq 'ARRAY'){
+      $fetch->{param}->[$fetch->{key}]->[1] = $pkg->{QUERY};
+    }
 
     my $thisurl =
       WWW::ContentRetrieval::Spider::queryURL(
 				      {
 					  URL         => $url,
 					  METHOD      => $method,
-					  PARAM       => $pkg->{DESC}->{PARAM},
-					  QUERY       => [
-							  $pkg->{DESC}->{KEY},
-							  $pkg->{QUERY}
-							  ],
+					  PARAM       => $fetch->{param},
 				      });
-    my $cud = md5($thisurl);  # current url's digest ; using md5 trying to avoid duplication
+    # current url's digest ; using md5 trying to avoid duplication
+    my $cud = md5($thisurl);
     return if $pkg->{JUSTHAVEIT}->{$cud};
     $pkg->{JUSTHAVEIT}->{$cud} = 1;
 
@@ -146,8 +163,7 @@ sub _retrieve{
     my ($content) = WWW::ContentRetrieval::Spider->new({
 	URL         => $url,
 	METHOD      => $method,
-	PARAM       => $pkg->{DESC}->{PARAM},
-	QUERY       => [ $pkg->{DESC}->{KEY} , $pkg->{QUERY} ],
+	PARAM       => $fetch->{PARAM},
 	HTTP_PROXY  => $pkg->{HTTP_PROXY},
 	TIMEOUT     => $pkg->{TIMEOUT},
     })->content;
@@ -194,7 +210,7 @@ WWW::ContentRetrieval - WWW robot plus text analyzer
 
 =head1 DESCRIPTION
 
-L<WWW::ContentRetrieval> combines the power of a www robot and a text analyzer. It can fetch a series of web pages with some attributes in common, for example, a product catalogue. Users write down a description file and L<WWW::ContentRetrieval> can do fetching and extract desired data. This can be applied to do price comparison or meta search, for instance.
+L<WWW::ContentRetrieval> combines the power of a www robot and a text analyzer. It can fetch a series of web pages with some attributes in common. Users write down a description file and L<WWW::ContentRetrieval> can do fetching and extract desired data.
 
 =head1 METHODS
 
@@ -203,8 +219,11 @@ L<WWW::ContentRetrieval> combines the power of a www robot and a text analyzer. 
   # with site's description only
   $s = new WWW::ContentRetrieval($desc);
 
+  # or
+  $s = new WWW::ContentRetrieval($desc_filename);
 
-  # with full argument list
+
+  # or with full argument list
   $s =
     new WWW::ContentRetrieval(
 			      DESC       => $desc,
@@ -215,8 +234,6 @@ L<WWW::ContentRetrieval> combines the power of a www robot and a text analyzer. 
 
 			      HTTP_PROXY => 'http://fooproxy:2345/',
 
-			      DEBUG      => 1,
-			      # non-zero to print out debugging msgs
 			      );
 
 =head2 retrieve
@@ -227,85 +244,123 @@ You may use Data::Dumper to see it.
 
 =head1 EXPORT
 
-=head2 genDescTmpl
+=head2 gentmpl
 
 generates a description template.
 
 Users can do it in a command line,
 
-  perl -MWWW::ContentRetrieval -e'print genDescTmpl'
+  perl -MWWW::ContentRetrieval -e'print gentmpl'
 
 =head1 DESC FILE TUTORIAL
 
 =head2 OVERVIEW
 
-L<WWW::ContentRetrieval> uses L<YAML> for users to define a site's description. L<YAML> is a portable, editable, readable, and extensible language. It can be an alternative for L<Data::Dumper>, and it is designed to define a data structure in a friendly way. Thus, L<YAML> is adopted.
+L<WWW::ContentRetrieval> uses a pod-like language call B<CRL>, I<content retrieval language>, for users to define a site's description. See L<WWW::ContentRetrieval::CRL> for detail.
 
-Now, suppose the product's query url of "foobar technology" be B<http://foo.bar/query.pl?encoding=UTF8&product=blahblahblah>, then the description is like the following: 
+Now, suppose the product's query url of "foobar technology" be I<http://foo.bar/query.pl?encoding=UTF8&product=blahblahblah>, then the description is like the following.
 
- # callback function
- sub callback {
-     my ($textref, $thisurl) = @_;
-     blah blah
- }
+  $desc = <<'...';
 
- # a small processing language
- $links = <<'LINKS';
+  =crl foobar tech.
 
-    # look up texts for this pattern
-  match=m,<a href="(.+?)">(.+?)</a>,sg
+  =fetch
 
-    # give an identifier to the captured value
-  site=$item[1]
+  =url http://foo.bar/
 
-    # ditto
-  url=$item[2]
+  =method PLAIN
 
-    # replace *url* using substitution
-  replace(url)=s/http/ptth/
+  =param encoding
 
-    # reject data with *asp* at url's end
-  reject(url)=m/\.asp$/
- LINKS
+  utf-8
 
- # site's description
- $desc = <<'...';
- NAME: site's name
+  =key product
 
- FETCH:
-   QHANDL : 'http://foo.bar/query.pl'
-   METHOD: GET
-   PARAM:
-    encoding : UTF8
-   KEY: product
-   POLICY:
-    - m/foo\.bar/ => $links
-    - m/foo\.bar/ => &callback
-   NEXT:
-    - m/./ => m/<a href="(.+?)">.+<\/a>/
-    - q'http://foo.bar/query.pl' => $next
- ...
+  =case m/./
 
-=head2 NAME
+  product
 
-Name of the site.
+  =policy product
 
-=head2 POLICY
+  mainmatch=m,<a href=(["'])(.+?)\1>(.+?)</a>,sg
+  link="http://foo.bar/".$2
+  name=$3
+  export=link name
 
-POLICY stores information for a certain page's extraction. It is composed of pairs of (this url's pattern => callback function) or (this url's pattern => retrieval settings). If the current url matches /this pattern/, then this modules will invoke the corresponding callback or extract data according to the retrieval settings given by users. And remember that regular expressions must be initialed with C<m>, or it will produce an error.
+  =policy nexturls
 
-In simple cases, users only need to write down the retrieval settings instead of a callback function. Retrieval settings contains lines of instructions in a /key=value/ format. Here's an example.
+  blah blah looking for urls
 
- # use a leading # for comment
- $setting=<<'SETTING';
- match=m,<a href="(.+?)">(.+?)</a>,sg
- url=$item[1]
- desc="<".$item[2].">"
- replace(url)=s/http/ptth/;
- reject(url)=m/\.asp$/
- SETTING
+  =callback
 
-Then the module will try to match the pattern in the retrieved page, and assigns the keys with matched values. Captured variables will be stored in an array called C<@item>, whose index counts from 1 to 9. Then, B<replace> follows a substitution matcher, which can refine extracted data. And, B<reject> allows users to discard values matching some pattern after substitution.
+  sub {
+      my ($textref, $thisurl) = @_;
+      blah blah ...
+      write your filter code here
+  }
+
+  =LRC
+
+  ...
+
+=head2 crl
+
+Beginning of site's description. It is followed by the site's name.
+
+=head2 fetch
+
+Beginning of fetching block.
+
+=head2 url
+
+The web page you are dealing with.
+
+=head2 method
+
+PLAIN | GET | POST
+
+=head2 param
+
+Web script's parameters. It is followed by key and value.
+
+=head2 key
+
+Variable part of paramters. Parameter passed to method C<retrieve> will be joined with the key.
+
+Both param and key are I<order-sensitive>, that is, the order they appears in description file will determine the order in the request url.
+
+=head2 case
+
+It takes two arguments; one is a regular expression, another is the name of a page filter.
+
+If page's url matches the pattern, the corresponding filter will be invoked.
+
+See I<policy> and I<callback> parts for detail.
+
+
+=head2 policy and callback
+
+B<Policy> and B<callback> are the guts of this module and they help to extract data from pages.
+
+=over 2
+
+=item * policy
+
+Policy takes two parameters: a regular expression and a lines of data manipulation sublanguage. Here is an example.
+
+  mainmatch=m,<a href=(["'])(.+?)\1>(.+?)</a>,sg
+  link="http://foobar:/$2"
+  name=$3
+  match(link)=m,^http://(.+?),
+  site=$1
+  replace(link)=s/http/ptth/
+  reject(name)=m/^bb/
+  export=link name site
+
+In the first place, use C<mainmatch> to look for desired pattern. Then, users can assign value to self-defined variables and go deeper to capture values using C<match(variable)>. C<Replace> can modify extracted text, and C<reject> discards values matching some pattern. Finally, users have to specify which variables to export using C<export>.
+
+
+=item * callback
 
 If users have to write callback functions for more complex cases, here is the guideline:
 
@@ -334,7 +389,7 @@ Callback's return value should be like the following
    }
  ];
 
-If users need WWW::ContentRetrieval to retrieve next page, e.g. dealing with several pages of search results, push an anonymous hash with only one entry: C<_DTLURL>
+If users need to retrieve next page, e.g. dealing with several pages of search results, push an anonymous hash with only one entry: C<_DTLURL>
 
  {
   _DTLURL => next url,
@@ -343,41 +398,19 @@ If users need WWW::ContentRetrieval to retrieve next page, e.g. dealing with sev
 See also I<t/extract.t>, I<t/robot.t>
 
 
-=head2 NEXT
-
-Represents URLs to be retrieved in next cycle.
-
-Likewise, this module tries to match the lefthand side with the current url. If they match, the code on the right side will be invoked.
-
-Additional to callback functions and retrieval settings, users can use regular expressions on the right side. Text will be searched for patterns matching the given one, and don't forget to capture desired urls with parentheses.
-
-N.B. Different righthand sides can be attached to the same lefthand side, which means users can process one webpage with multiple strategies.
-
-=head2 METHOD
-
-Request method: GET, POST, or PLAIN.
-
-=head2 QHANDL
-
-C<Query Handler>, Url of the query script.
-
-=head2 PARAM
-
-Constant script parameters, excluding user's queries.
-
-=head2 KEY
-
-Key to user's query strings, e.g. product names
-
 =head1 SEE ALSO
 
-L<WWW::ContentRetrieval::Spider>, L<WWW::ContentRetrieval::Extract>
+L<WWW::ContentRetrieval::Spider>, L<WWW::ContentRetrieval::Extract>, L<WWW::ContentRetrieval::CRL>
 
 =head1 CAVEATS
 
 It is still alpha, and the interface is subject to change. Source code is distributed without warranty.
 
 B<Use it with your own cautions.>
+
+=head1 TO DO
+
+Login and logout simulation
 
 =head1 COPYRIGHT
 

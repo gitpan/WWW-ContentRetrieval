@@ -7,8 +7,10 @@ WriteMakefile(
     'PREREQ_PM'		=> {
 	'Digest::MD5' => '2.02',
 	'URI'         => '1.22',
-	'YAML'        => '0.35',
 	'LWP'         => '5.69',
+	'File::Slurp' => '2002',
+	'Clone'       => '0.13',
+	'IO::Scalar'  => '2.104',
     }, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?    ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM => 'ContentRetrieval.pm', # retrieve abstract from module

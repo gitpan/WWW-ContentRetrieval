@@ -2,7 +2,7 @@ package WWW::ContentRetrieval::Spider;
 
 use 5.006;
 use strict;
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 use strict;
 use LWP::UserAgent;
@@ -24,8 +24,8 @@ sub new {
     my($h) =    {
         URL         => $arg->{URL},
 	METHOD      => $arg->{METHOD} || "GET",
-	USERAGENT   => $arg->{USERAGENT} ||
-	    "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:0.9.2.1) Gecko/20010901",
+	COOKIE_JAR  => $arg->{COOKIE_JAR},
+	USERAGENT   => $arg->{USERAGENT} || "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:0.9.2.1) Gecko/20010901",
 	PARAM       => $arg->{PARAM},
 	QUERY       => $arg->{QUERY},
 	HTTP_PROXY  => $arg->{HTTP_PROXY},
@@ -48,6 +48,7 @@ sub content {
     $ua->agent  ($pkg->{USERAGENT});
     $ua->proxy  (http => $pkg->{HTTP_PROXY}) if $pkg->{HTTP_PROXY};
     $ua->timeout($pkg->{TIMEOUT});
+    $ua->cookie_jar({ file => $pkg->{COOKIE_JAR} });
 
     if($pkg->{METHOD} eq "PLAIN"){
 	print STDERR "$pkg->{URL}\n" if $pkg->{DEBUG};
@@ -56,10 +57,18 @@ sub content {
 	$response->is_success or return;
     }
     elsif($pkg->{METHOD} eq "GET"){
-	my$paramstr=join(q/&/, map { qq/$_=${$pkg->{PARAM}}{$_}/ } keys %{$pkg->{PARAM}});
+	my $paramstr
+	    = join(q/&/, 
+		   ref($pkg->{PARAM} eq 'HASH') ?
+		   map { qq/$_=${$pkg->{PARAM}}{$_}/ } keys %{$pkg->{PARAM}} :
+		       map{ qq/${$_}[0]=${$_}[1]/ } @{$pkg->{PARAM}});
+
 	$url=join( q//, "$pkg->{URL}?",
-		   qq/$pkg->{QUERY}->[0]=$pkg->{QUERY}->[1]/,
-		   $paramstr? q/&/.$paramstr : undef);
+                   join q/&/,
+                   grep{$_}
+                   ( $pkg->{QUERY}->[0] ?
+                     qq/$pkg->{QUERY}->[0]=$pkg->{QUERY}->[1]/ : undef),
+                   $paramstr);
 	print STDERR "$url\n" if($pkg->{DEBUG});
 	$request = GET ($url);
 	$response = $ua->request($request);
@@ -75,8 +84,11 @@ sub content {
            my $paramstr=join(q/&/,  map { qq/$_=${$pkg->{PARAM}}{$_}/ } keys %{$pkg->{PARAM}});
 	if($pkg->{DEBUG}){
 	    $url=join( q//, "$pkg->{URL}?",
-			 qq/$pkg->{QUERY}->[0]=$pkg->{QUERY}->[1]/,
-			 $paramstr? q/&/.$paramstr : undef);
+                        join q/&/,
+                        grep{$_}
+                        ( $pkg->{QUERY}->[0] ?
+                          qq/$pkg->{QUERY}->[0]=$pkg->{QUERY}->[1]/ : undef),
+	                 $paramstr);
 	    print STDERR "$url\n";
 	}
 	$response = $ua->request($request);
@@ -109,10 +121,19 @@ sub queryURL {
 	return $arg->{URL};
     }
     elsif($arg->{METHOD} eq "GET" || $arg->{METHOD} eq "POST"){
-	my$paramstr=join(q/&/, map { qq/$_=/.($arg->{PARAM}->{$_}) } keys %{$arg->{PARAM}});
-	my$url=join( q//, $arg->{URL}, q/?/,
-			qq/$arg->{QUERY}->[0]=$arg->{QUERY}->[1]/,
-			$paramstr? q/&/.$paramstr : undef);
+	my $paramstr
+	    = join(q/&/,
+		  ref($arg->{PARAM} eq 'HASH') ?
+		  map { qq/$_=${$arg->{PARAM}}{$_}/ } keys %{$arg->{PARAM}} :
+		      ref($arg->{PARAM} eq 'ARRAY')?
+			  map{ qq/${$_}[0]=${$_}[1]/ } @{$arg->{PARAM}} : '');
+
+	my $url = join( q//, $arg->{URL}, q/?/,
+                        join q/&/,
+                        grep{$_}
+                        ( $arg->{QUERY}->[0] ?
+                          qq/$arg->{QUERY}->[0]=$arg->{QUERY}->[1]/ : undef),
+	                 $paramstr);
 	print STDERR "$url\n" if $arg->{DEBUG};
 	return $url;
     }
@@ -136,6 +157,7 @@ WWW::ContentRetrieval::Spider - Simplified WWW User Agent
     PARAM       => { 'paramA', 'valueA' },
     QUERY       => [ querykey, queryvalue ],
     HTTP_PROXY  => 'http://foo.bar:2345/',
+    COOKIE_JAR  => "$ENV{HOME}/cookies.txt",
     TIMEOUT     => 10,
   );
 
@@ -156,6 +178,7 @@ WWW::ContentRetrieval::Spider is a simplified www useragnet for web page retriev
     PARAM       => { 'paramA' => 'valueA' }     # other parameters
     TIMEOUT     => 5,                           # 10 if undef
     USERAGENT   => 'WWW::ContentRetrieval::Spider'      # becomes Mozilla if undef
+    COOKIE_JAR  => "$ENV{HOME}/cookies.txt"     # default is undef
     HTTP_PROXY  => 'http://foo.bar:2345/',
   );
 

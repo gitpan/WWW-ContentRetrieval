@@ -1,51 +1,31 @@
 use Test;
 BEGIN{ plan tests => 4 }
-
 use WWW::ContentRetrieval::Extract;
-ok(1);
-sub callback{
-    my ($textref, $thisurl) = @_;
-    my $ret;
-    push @$ret, { 'LINGUA' => $1 } while( $$textref =~ /<tr> <td> (.+)/mg);
-    $ret;
-};
-
-
-$items = <<'ITEMS';
-match=m/(<tr>) (<td>) (.+?)\n/mg
-tr=$item[1]
-td=$item[2]
-language="romance language => ".$item[3]
-replace(language)=s/l/a/
-ITEMS
-
-$items2 = <<'ITEMS';
-match=m/<tr> <td> (.+)/mg
-language="lingua => ".$item[1]
-ITEMS
-
-    $next =<<'NEXT';
-match=m,<a href="(.+?)">.+?</a>,m
-_DTLURL="http://romance.language/".$item[1]
-NEXT
-
-my $hashref = <<'SETTING';
-NAME: romance languages
-FETCH:
-  URL : 'http://foo.bar/query.pl'
-  METHOD: GET
-  PARAM:
-     encoding : UTF8
-  KEY: product
-  POLICY:
-   - m/romance\.language/ => $items
-   - m/romance\.language/ => $items2
-   - m/romance\.language/ => &callback
-  NEXT:
-   - m/./ => $next
-SETTING
-
 use Data::Dumper;
+ok(1);
+
+$desc =<<'DESC';
+=crl several romance languages
+
+=fetch
+
+=case m/./
+
+rl
+
+=policy rl
+
+mainmatch=m/<tr> <td> (.+)/mg
+language="is $1"
+match(language)=/.+(.)/
+lastchar=$1
+replace(language)=s/sp/ps/
+reject(language)=m/latin/
+export=language lastchar
+
+=lrc
+
+DESC
 
 $text =<<'TEXT';
 <html>
@@ -67,14 +47,11 @@ $text =<<'TEXT';
 TEXT
 
 $e =
-  WWW::ContentRetrieval::Extract->new(
-				      DESC => $hashref,
-				      TEXT => $text,
-				      THISURL => 'http://romance.language'
-				      );
+  WWW::ContentRetrieval::Extract->new(DESC => $desc, TEXT => $text,
+				      THISURL => 'http://romance.language');
 
 $r = $e->extract;
-print Dumper $r;
-ok(1) if $r->[0]->{_DTLURL} =~ /http/;
-ok(1) if $r->[2]->{language} =~ /romance aanguage/;
-ok(1) if $r->[13]->{LINGUA} eq 'latin';
+#print Dumper $r;
+ok($r->[0]->{language}, 'is italian');
+ok($r->[2]->{language}, 'is psanish');
+ok($r->[4]->{lastchar}, 'e');

@@ -10,3 +10,6 @@ Revision history for Perl extension WWW::ContentRetrieval::Spider.
 0.04  Sun, 16 Feb 2003 01:14:25 +0800
         - more flexible format of arguments
 
+0.05  Wed, 19 Feb 2003 12:55:29 +0800
+	- cookie jar added
+	- code refinement

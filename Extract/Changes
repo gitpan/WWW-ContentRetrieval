@@ -27,3 +27,5 @@ Revision history for Perl extension WWW::ContentRetrieval::Extract.
         - a small bug in Extract.pm fixed
         - more flexible format of arguments
 
+0.09  Wed, 19 Feb 2003 12:55:29 +0800
+	- code refinement

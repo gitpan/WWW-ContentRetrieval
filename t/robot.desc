@@ -1,0 +1,25 @@
+=crl Google
+
+=fetch
+
+=url http://www.google.com/
+
+=method PLAIN
+
+=case m/./
+
+entry
+
+=policy entry
+
+mainmatch=m,<a href=(["'])(.+?)\1>(.+?)</a>,sg
+link=$2
+name=$3
+export=link name
+
+
+
+=LRC
+
+
+
