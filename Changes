@@ -7,3 +7,5 @@ Revision history for Perl extension WWW::ContentRetrieval.
 0.02  Sun Feb 02 21:44:56 2003
 	- minor bugs fixed
 
+0.05a Fri, 7 Feb 2003 14:28:13 +0800
+        - no HTML::TreeBuilder

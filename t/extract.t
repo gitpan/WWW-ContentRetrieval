@@ -1,25 +1,22 @@
 use Test;
-BEGIN { plan tests => 3 };
+BEGIN { plan tests => 2 };
 use WWW::ContentRetrieval;
 
 ok(1);
+
+sub callback {
+    my ($textref, $thisurl) = @_;
+    my $ret;
+    push @$ret, { 'LINGUA' => $1 } while( $$textref =~ /<tr> <td> (.+)/mg);
+    $ret;
+}
 
 $desc = {
     romance =>
     {
         NAME => "romance",
         NEXT => [ ],
-        POLICY =>[
-		  'romance\.language'
-		  =>
-		  [
-		   [
-		    "LINGUA" => "0.1.0.0.0",
-		    [ 3 ], [ 1 ], [ 5 ],
-		    sub{ local $_=shift; s/\s//g; $_ }
-		   ],
-		   ],
-		  ],
+        POLICY =>[ 'romance\.language' => \&callback ],
         METHOD => 'PLAIN',
     },
 
@@ -32,13 +29,10 @@ $desc = {
 }
 
 use Data::Dumper;
-
-ok( 'title', WWW::ContentRetrieval::Extract::lookup( WWW::ContentRetrieval::bldTree($s) , '0.0.0')->{tag} );
-
 $e = WWW::ContentRetrieval::Extract->new({
              TEXT    => $s,
              DESC    => $desc->{romance},
-             THISURL => 'http://romance.language.com/',
+             THISURL => 'http://romance.language.moc/',
          });
 
 print Dumper $e->extract;
@@ -48,7 +42,7 @@ ok('spanish', $e->extract->[3]->{LINGUA});
 __DATA__
 <html>
 <head>
-<title> Romance Languages </title>
+<title> Some Romance Languages </title>
 </head>
 <body>
 <table>

@@ -2,7 +2,7 @@ package WWW::ContentRetrieval::Spider;
 
 use 5.006;
 use strict;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use strict;
 use LWP::UserAgent;
@@ -136,7 +136,7 @@ WWW::ContentRetrieval::Spider - Simplified WWW User Agent
 
 =head1 DESCRIPTION
 
-WWW::ContentRetrieval::Spider is a simplified module for web page retrieval, and is designed mainly for WWW::ContentRetrieval. Many features of LWP are excluded from here.
+WWW::ContentRetrieval::Spider is a simplified www useragnet for web page retrieval, and is designed mainly for WWW::ContentRetrieval. Many features of LWP are excluded from here.
 
 =head1 METHODS
 
@@ -182,7 +182,6 @@ L<WWW::ContentRetrieval>, L<WWW::ContentRetrieval::Extract>, L<LWP>
 xern <xern@cpan.org>
 
 This module is free software; you can redistribute it or modify it under the same terms as Perl itself.
-
 
 =cut
 

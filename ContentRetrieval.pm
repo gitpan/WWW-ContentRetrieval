@@ -3,30 +3,17 @@ package WWW::ContentRetrieval;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.04a';
+our $VERSION = '0.05a';
 
 require WWW::ContentRetrieval::Spider;
 require WWW::ContentRetrieval::Extract;
+require Exporter;
+our @ISA = qw(Exporter);
+our @EXPORT = qw(genDescTmpl);
 
 use Data::Dumper;
-use HTML::TreeBuilder;
-use IO::Scalar;
 use URI;
 use Digest::MD5 qw/md5/;
-
-# ----------------------------------------------------------------------
-# Building an html-tree
-# ----------------------------------------------------------------------
-sub bldTree($){
-    $_[0] || return;
-    my $t;
-    my $sh = new IO::Scalar \$t;
-    my $h = HTML::TreeBuilder->new_from_content($_[0]);
-    $h->ignore_unknown(0);
-    $h->dump($sh);
-    $h = $h->delete(); # nuke it!
-$t;
-}
 
 # ----------------------------------------------------------------------
 # Generating description template
@@ -131,7 +118,7 @@ sub _retrieve{
 							  $pkg->{QUERY}
 							  ],
 				      });
-    my $cud = md5($thisurl);  # current url digest ; md5 used to avoid duplication
+    my $cud = md5($thisurl);  # current url's digest ; using md5 trying to avoid duplication
     return if $pkg->{JUSTHAVEIT}->{$cud};
     $pkg->{JUSTHAVEIT}->{$cud} = 1;
 
@@ -157,13 +144,13 @@ sub _retrieve{
     return unless ref $k;
     foreach (@$k){
 	print Dumper $_ if $pkg->{DEBUG};
-	if(exists $_->{DTLURL}){
-	    if($_->{DTLURL} !~ /^http:/){
-		$_->{DTLURL} = URI->new_abs($_->{DTLURL}, $thisurl)->as_string;
+	if(exists $_->{_DTLURL}){
+	    if($_->{_DTLURL} !~ /^http:/){
+		$_->{_DTLURL} = URI->new_abs($_->{_DTLURL}, $thisurl)->as_string;
 	    }
-	    push @{$pkg->{SPOOL}},['PLAIN', $_->{DTLURL} ];
+	    push @{$pkg->{SPOOL}},['PLAIN', $_->{_DTLURL} ];
 	}
-        elsif(!exists $_->{DTLURL} || (scalar keys %$_) > 1){
+        elsif(!exists $_->{_DTLURL} || (scalar keys %$_) > 1){
 	    push @{$pkg->{BEEF}}, $_;
         }
     }
@@ -185,7 +172,6 @@ WWW::ContentRetrieval - WWW robot plus text analyzer
 				 {
 				     TIMEOUT    => 3,
 				     HTTP_PROXY => 'http://fooproxy:2345/',
-                                     DEBUG      => 1,
 				 });
   print Dumper $robot->retrieve( $query );
 
@@ -198,12 +184,18 @@ L<WWW::ContentRetrieval> combines the power of a www robot and a text analyzer. 
 
 =head2 new
 
-  $s = WWW::ContentRetrieval->new($desc,
-			 {
-			     TIMEOUT    => 3,  # default is 10 seconds.
-			     HTTP_PROXY => 'http://fooproxy:2345/',
-                             DEBUG      => 1,  # non-zero to print out debugging msgs
-			 });
+  $s =
+    new WWW::ContentRetrieval(
+			      $desc,
+			      {
+				  TIMEOUT    => 3,
+				  # default is 10 seconds.
+
+				  HTTP_PROXY => 'http://fooproxy:2345/',
+
+				  DEBUG      => 1,
+				  # non-zero to print out debugging msgs
+			      });
 
 =head2 retrieve
 
@@ -211,37 +203,31 @@ L<WWW::ContentRetrieval> combines the power of a www robot and a text analyzer. 
 
 You may use Data::Dumper to see it. 
 
-=head1 OTHER TOOLS
+=head1 EXPORT
 
-=head2 WWW::ContentRetrieval::bldTree(htmltext)
+=head2 genDescTmpl
 
-tree-ifies text. See also L<HTML::TreeBuilder>
+generates a description template.
 
-=head2 WWW::ContentRetrieval::genDescTmpl
+Users can do it in a command line,
 
-automatically generates a description template.
+  perl -MWWW::ContentRetrieval -e'print genDescTmpl'
 
 =head1 DESC FILE TUTORIAL
 
 =head2 OVERVIEW
 
-Currently, this module uses native Perl's anonymous array and hash for users to write down site descriptions. Let's see an example.
+Currently, this module uses Perl's native anonymous array and hash for users to write down site descriptions. Let's see an example.
 
-Suppose the product query url of "foobar technology" be B<http://foo.bar/query.pl?encoding=UTF8&product=blahblahblah>.
-
- {
-   SITE  =>
-   {
+Suppose the product's query url of "foobar technology" be B<http://foo.bar/query.pl?encoding=UTF8&product=blahblahblah>, then the description is like the following: 
+ $desc ={
     NAME => "foobar tech.",
     NEXT => [
      'query.pl' => 'detail.pl',
     ],
     POLICY => [
-      'http://foo.bar/detail.pl' => [
-				     ["PRODUCT" => "0.1.1.0.0.5.1" ],
-				     ["PRICE"   => "0.1.1.0.0.5.1.0" ],
-				     ],
-      'http://foo.bar/foobarproduct.pl' => \&extraction_callback,
+      'http://foo.bar/foobarproduct.pl'
+        => \&extraction_callback,
     ],
     METHOD => 'GET',
     QHANDL => 'http://foo.bar/query.pl',
@@ -249,13 +235,7 @@ Suppose the product query url of "foobar technology" be B<http://foo.bar/query.p
      ['encoding', 'UTF8'],
     ],
     KEY => 'product',
-   }
  };
-
-
-=head2 SITE
-
-Hash key to the settings.
 
 =head2 NAME
 
@@ -263,49 +243,13 @@ The name of the site.
 
 =head2 NEXT
 
-NEXT is an anonymous array containing pairs of (this pattern => next pattern). If the current url matches /this pattern/, then text is searched for urls that match /next pattern/ and these urls are queued for next retrieval.
+NEXT is an anonymous array containing pairs of (this pattern => next pattern). If the current url matches /this pattern/, then text is searched for urls that match /next pattern/ and these urls will be queued for next retrieval.
 
 =head2 POLICY
 
-POLICY is an anonymous array containing pairs of (this pattern => node settings). If the current url matches /this pattern/, then data at the given node will be retrieved.
-Format of a slice is like this:
+POLICY is an anonymous array containing pairs of (this pattern => callback). If the current url matches /this pattern/, then the corresponding callback will be invoked.
 
-  [ NODE_NAME =>
-    STARTING_NODE,
-    [ VARIABLE INDEX ],
-    [ STEPSIZE ],
-    [ ENDING ],
-    [ sub{FILTER here} ]
-   ]
-
-NODE_NAME is the output key to the node data. VARIABLE INDEX is an array of integers, denoting the index numbers of individual digits in starting node at which STARTING_NODE evolves. Using Cartesian product, nodes expand one STEPSIZE one time until digits at VARIABLE INDEX are all identical to those given in ENDING.
-
-FILTER is left to users to write callback functions handling retrieved data, such as whitespace stripping.
-
-Except NODE_NAME and STARTING_NODE, all of them are optional.
-
-If users append ! to the tail of STARTING_NODE, L<WWW::ContentRetrieval::Extract> will extract the subtree hanging on the STARTING_NODE.
-
-=over 1
-
-=item * POLICY example
-
-[ "PRODUCT" =>
-  "0.0.0.0",
-  [ 1, 3 ],
-  [ 1, 2 ],
-  [ 3, 4 ],
-  sub { local $_ = shift; s/\s//g; $_ }
-]
-
-Data at 0.0.0.0, 0.0.0.2, 0.0.0.4, 0.1.0.0, 0.1.0.2, 0.1.0.4, 0.2.0.0, 0.2.0.2, 0.2.0.4, 0.3.0.0, 0.3.0.2, and 0.3.0.4 will be extracted with spaces eliminated.
-
-=back
-
-
-Also,
-
-users may write I<ad hoc> callback functions for I<extraction> instead of writing down the above clumsie. L<WWW::ContentRetrieval> passes two parameters to a callback function: a reference to page's content and page's url.
+L<WWW::ContentRetrieval> passes two parameters to a callback function: a reference to page's content and page's url.
 
 E.g.
 
@@ -317,8 +261,26 @@ E.g.
       return an array of hashes, with keys and extracted information.
   }
 
-See also L<t/extract.t>, L<t/robot.t>, L<t/recget.t>
+N.B.
+Callback's return value should be like the following
 
+ [
+  {
+   PRODUCT => "foobar",
+   PRICE => 256,
+  },
+  {
+   ...
+   }
+ ];
+
+If users need WWW::ContentRetrieval to retrieve next page, e.g. dealing with several pages of search results, push an anonymous hash with only one entry: C<_DTLURL>
+
+ {
+  _DTLURL => next url,
+ }
+
+See also I<t/extract.t>, I<t/robot.t>
 
 =head2 METHOD
 
@@ -330,11 +292,19 @@ C<Query Handler>, Url of the query script.
 
 =head2 PARAM
 
-Constant script parameters, without user's queries.
+Constant script parameters, excluding user's queries.
 
 =head2 KEY
 
 Key to user's query strings, e.g. product names
+
+=head1 TO DO
+
+=over 1
+
+=item * A small language for site description
+
+=back
 
 =head1 SEE ALSO
 
