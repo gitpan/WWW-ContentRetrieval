@@ -66,13 +66,12 @@ $text =<<'TEXT';
 </html>
 TEXT
 
-$e = WWW::ContentRetrieval::Extract->new(
-					 {
-					     DESC => $hashref,
-					     TEXT => $text,
-					     THISURL => 'http://romance.language'
-					 }
-					 );
+$e =
+  WWW::ContentRetrieval::Extract->new(
+				      DESC => $hashref,
+				      TEXT => $text,
+				      THISURL => 'http://romance.language'
+				      );
 
 $r = $e->extract;
 print Dumper $r;

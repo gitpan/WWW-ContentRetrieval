@@ -2,17 +2,24 @@ package WWW::ContentRetrieval::Spider;
 
 use 5.006;
 use strict;
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 use strict;
 use LWP::UserAgent;
 use HTTP::Request::Common;
 
+require Exporter;
+our @ISA = qw(Exporter);
+our @EXPORT = qw(queryURL);
+
+
 # ----------------------------------------------------------------------
 # constructor
 # ----------------------------------------------------------------------
 sub new {
-    my($pkg, $arg) = @_;
+    my($pkg) = shift;
+    my($arg) = ref($_[0]) ? shift : {@_};
+    
     die "NO URL\n" unless $arg->{URL};
     my($h) =    {
         URL         => $arg->{URL},
@@ -95,7 +102,7 @@ sub content_to_file{
 # Returns a well-formed query url
 # ----------------------------------------------------------------------
 sub queryURL {
-    my($arg) = shift;
+    my($arg) = ref($_[0]) ? shift : {@_};
     my($content, $request, $response);
     if($arg->{METHOD} eq "PLAIN"){
 	print STDERR "$arg->{URL}\n" if $arg->{DEBUG};
@@ -123,14 +130,14 @@ WWW::ContentRetrieval::Spider - Simplified WWW User Agent
 =head1 SYNOPSIS
 
   use WWW::ContentRetrieval::Spider;
-  $s = new WWW::ContentRetrieval::Spider({
+  $s = new WWW::ContentRetrieval::Spider(
     URL         => 'http://foo.bar/',
     METHOD      => 'PLAIN',
     PARAM       => { 'paramA', 'valueA' },
     QUERY       => [ querykey, queryvalue ],
     HTTP_PROXY  => 'http://foo.bar:2345/',
     TIMEOUT     => 10,
-  });
+  );
 
   print $s->content;
 
@@ -142,7 +149,7 @@ WWW::ContentRetrieval::Spider is a simplified www useragnet for web page retriev
 
 =head2 new
 
-  $s = WWW::ContentRetrieval::Spider->new({
+  $s = WWW::ContentRetrieval::Spider->new(
     URL         => 'http://foo.bar/',
     METHOD      => 'PLAIN',                     # default is 'GET'
     QUERY       => [ querykey, queryvalue ],    # user's query
@@ -150,7 +157,7 @@ WWW::ContentRetrieval::Spider is a simplified www useragnet for web page retriev
     TIMEOUT     => 5,                           # 10 if undef
     USERAGENT   => 'WWW::ContentRetrieval::Spider'      # becomes Mozilla if undef
     HTTP_PROXY  => 'http://foo.bar:2345/',
-  });
+  );
 
 And, it is better not to mix URL and its parameters together.
 
@@ -162,14 +169,14 @@ $s->content() returns url's content if success. Or it returns undef
 
 $s->content_to_file(FILENAME) dumps content to a file
 
-=head1 OTHER TOOLS
+=head1 EXPORT
 
-  WWW::ContentRetrieval::Spider::queryURL({
+  queryURL(
       URL         => $url,
-      METHOD      => 'POST,
+      METHOD      => 'POST',
       PARAM       => { 'paramA', 'valueA' },
       QUERY       => [ querykey, queryvalue],
-  });
+  );
 
 returns a GET-like URL for debugging or other uses, even though request method is POST.
 

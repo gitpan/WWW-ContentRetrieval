@@ -17,7 +17,7 @@ sub callback {
 $item =<<'...';
 match=m,<a href=(.+?)>(.+?)</a>,sg
 title=$item[1]
-reject(title)=m/help/
+reject(title)=m,help,
 ...
 
 

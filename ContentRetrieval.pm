@@ -2,14 +2,16 @@ package WWW::ContentRetrieval;
 
 use 5.006;
 use strict;
-our $VERSION = '0.086';
+our $VERSION = '0.087';
+
+require Exporter;
+our @ISA = qw(Exporter);
+our @EXPORT = qw(genDescTmpl);
+
 
 use WWW::ContentRetrieval::Spider;
 use WWW::ContentRetrieval::Extract;
 use WWW::ContentRetrieval::Utils;
-require Exporter;
-our @ISA = qw(Exporter);
-our @EXPORT = qw(genDescTmpl);
 
 use Data::Dumper;
 use URI;
@@ -22,6 +24,19 @@ use YAML;
 sub genDescTmpl(){
     <<'TMPL';
 
+sub callback {
+    my ($textref, $thisurl) = @_;
+}
+
+$items = <<'...';
+match=m//sg
+item1=$item[1]
+item2=$item[2]
+replace(url)=s///
+reject(url)=m//
+...
+
+$desc = <<'...';
 NAME: site's name
 
 FETCH:
@@ -36,21 +51,25 @@ FETCH:
  NEXT:
   - m/./ => m/<a href="(.+?)">.+<\/a>/
   - m/./ => $next
+...
 
 TMPL
 }
 
 
-#                                                               << OO >>
 # ----------------------------------------------------------------------
 # constructor
 # ----------------------------------------------------------------------
 
-sub new($$;$){
-    my($pkg, $desc, $settings)= @_;
+sub new {
+    my($pkg) = shift;
+    my($arg);
+    if(@_==1){	$arg->{DESC} = shift;    }
+    else {	$arg = ref($_[0]) ? shift : {@_};    }
+
     my($callpkg) = caller(0);
-    my($justhaveit);
-    $desc = Load($desc);
+    my($justhaveit, $desc);
+    $desc = Load($arg->{DESC});
     transform_desc($callpkg, $desc);
     bless{
 	CALLPKG    => $callpkg,
@@ -59,9 +78,9 @@ sub new($$;$){
 	SPOOL      => undef,       # URL queue
 	BEEF       => undef,       # desired info
 	JUSTHAVEIT => $justhaveit, # stores checksums of urls that are retrieved
-	HTTP_PROXY => $settings->{HTTP_PROXY},
-	TIMEOUT    => $settings->{TIMEOUT},
-	DEBUG      => $settings->{DEBUG},
+	HTTP_PROXY => $arg->{HTTP_PROXY},
+	TIMEOUT    => $arg->{TIMEOUT},
+	DEBUG      => $arg->{DEBUG},
     },$pkg
 }
 
@@ -169,11 +188,7 @@ WWW::ContentRetrieval - WWW robot plus text analyzer
 
   use WWW::ContentRetrieval;
   use Data::Dumper;
-  $robot = WWW::ContentRetrieval->new($desc,
-				 {
-				     TIMEOUT    => 3,
-				     HTTP_PROXY => 'http://fooproxy:2345/',
-				 });
+  $robot = WWW::ContentRetrieval->new($desc);
   print Dumper $robot->retrieve( $query );
 
 
@@ -185,18 +200,24 @@ L<WWW::ContentRetrieval> combines the power of a www robot and a text analyzer. 
 
 =head2 new
 
+  # with site's description only
+  $s = new WWW::ContentRetrieval($desc);
+
+
+  # with full argument list
   $s =
     new WWW::ContentRetrieval(
-			      $desc,
-			      {
-				  TIMEOUT    => 3,
-				  # default is 10 seconds.
+			      DESC       => $desc,
+			      # site's description
 
-				  HTTP_PROXY => 'http://fooproxy:2345/',
+			      TIMEOUT    => 3,
+			      # default is 10 secs.
 
-				  DEBUG      => 1,
-				  # non-zero to print out debugging msgs
-			      });
+			      HTTP_PROXY => 'http://fooproxy:2345/',
+
+			      DEBUG      => 1,
+			      # non-zero to print out debugging msgs
+			      );
 
 =head2 retrieve
 
@@ -229,16 +250,23 @@ Now, suppose the product's query url of "foobar technology" be B<http://foo.bar/
  }
 
  # a small processing language
- $items = <<'ITEMS';
-  match=m,<a href="(.+?)">(.+)</a>,sg
+ $links = <<'LINKS';
+
+    # look up texts for this pattern
+  match=m,<a href="(.+?)">(.+?)</a>,sg
+
+    # give an identifier to the captured value
   site=$item[1]
+
+    # ditto
   url=$item[2]
+
+    # replace *url* using substitution
   replace(url)=s/http/ptth/
 
-  match=m,<img src="(.+?)">,sg
-  photo="http://foo.bar/".$item[1]
-  reject(photo)=m/jpg/
- ITEMS
+    # reject data with *asp* at url's end
+  reject(url)=m/\.asp$/
+ LINKS
 
  # site's description
  $desc = <<'...';
@@ -251,7 +279,7 @@ Now, suppose the product's query url of "foobar technology" be B<http://foo.bar/
     encoding : UTF8
    KEY: product
    POLICY:
-    - m/foo\.bar/ => $items
+    - m/foo\.bar/ => $links
     - m/foo\.bar/ => &callback
    NEXT:
     - m/./ => m/<a href="(.+?)">.+<\/a>/
@@ -274,9 +302,10 @@ In simple cases, users only need to write down the retrieval settings instead of
  url=$item[1]
  desc="<".$item[2].">"
  replace(url)=s/http/ptth/;
+ reject(url)=m/\.asp$/
  SETTING
 
-Then the module will try to match the pattern in the retrieved page, and assigns the keys with matched values. Captured variables will be stored in an array called C<@item>, whose index counts from 1 to 9. Then, B<replace> follows a substitution matcher, which can refine extracted data.
+Then the module will try to match the pattern in the retrieved page, and assigns the keys with matched values. Captured variables will be stored in an array called C<@item>, whose index counts from 1 to 9. Then, B<replace> follows a substitution matcher, which can refine extracted data. And, B<reject> allows users to discard values matching some pattern after substitution.
 
 If users have to write callback functions for more complex cases, here is the guideline:
 
@@ -343,6 +372,12 @@ Key to user's query strings, e.g. product names
 =head1 SEE ALSO
 
 L<WWW::ContentRetrieval::Spider>, L<WWW::ContentRetrieval::Extract>
+
+=head1 CAVEATS
+
+It is still alpha, and the interface is subject to change. Source code is distributed without warranty.
+
+B<Use it with your own cautions.>
 
 =head1 COPYRIGHT
 

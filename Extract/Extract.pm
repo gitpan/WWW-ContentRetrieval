@@ -2,7 +2,7 @@ package WWW::ContentRetrieval::Extract;
 
 use 5.006;
 use strict;
-our $VERSION = '0.083';
+our $VERSION = '0.085';
 
 use WWW::ContentRetrieval::Utils;
 use Data::Dumper;
@@ -13,7 +13,8 @@ use YAML;
 # Constructor
 # ----------------------------------------------------------------------
 sub new {
-    my($pkg, $arg) = @_;
+    my($pkg) = shift;
+    my($arg) = ref($_[0]) ? shift : {@_};
     my $desc;
     my $callpkg = $arg->{CALLPKG} ? $arg->{CALLPKG} : caller(0);
     if($arg->{DESC}){
@@ -26,7 +27,7 @@ sub new {
 
     my($obj) = {
 	DESC        => $desc,             # configuraion
-	TEXT        => $arg->{TEXT},      # page's content
+	TEXT        => $arg->{TEXT},        # page's content
 	THISURL     => $arg->{THISURL},
     };
 bless $obj, $pkg
@@ -84,7 +85,8 @@ sub extract($) {
 		    }
 		}
 
-	    }
+	      }
+		else{ $top++; }
 	}
 	$desc->{$entry."_PARSED"} = 1;
     }
@@ -105,7 +107,7 @@ sub extract($) {
 		push @retarr, @$r;
 	    }
 	    elsif( ref($p) eq 'SCALAR' ){
-		my $r = $pkg->match_get( 'NEXT', \$pagetext, $thisurl, $i/2 );
+		my $r = $pkg->match_get( 'NEXT', \$pagetext, $thisurl, int $i/2 );
 		push @retarr, @$r;
 	    }
 	    else{
@@ -139,7 +141,7 @@ sub extract($) {
 		push @retarr, @$r;
 	    }
 	    elsif( ref($policy->[$i+1]) eq 'SCALAR' ){
-		my $r = $pkg->match_get( 'POLICY', \$pagetext, $thisurl, $i/2 );
+		my $r = $pkg->match_get( 'POLICY', \$pagetext, $thisurl, int $i/2 );
 		push @retarr, @$r;
 	    }
 	}
@@ -163,12 +165,13 @@ sub match_get {
 	$nextloop = 0;
 	eval
 	    'if($subtext =~ '.$patt.'){
-              $item[$_] = ${$_} for(1..9);
+                 $item[$_] = ${$_} for(1..9);
+                 $subtext = $\';
              }
              else {
 		 $nextloop = 1;
+		 $subtext = undef;
              }
-             $subtext = $\';
 	';
         next if $nextloop;
 
@@ -190,6 +193,7 @@ sub match_get {
 	     }
            }
            push @ret, $item unless $reject;
+
            $patt =~ /^m(.)(?:.+?)\1(.+)/o;
            last if( $2 !~ /g/o );
     }

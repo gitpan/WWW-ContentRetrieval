@@ -12,6 +12,7 @@ Spider/MANIFEST
 Spider/Makefile.PL
 Spider/Spider.pm
 t/extract.t
+t/queryurl.t
 t/robot.t
 Utils/Changes
 Utils/Makefile.PL

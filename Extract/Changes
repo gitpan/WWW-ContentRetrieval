@@ -22,3 +22,8 @@ Revision history for Perl extension WWW::ContentRetrieval::Extract.
 
 0.082 Fri, 14 Feb 2003 19:34:16 +0800
         - *reject* added
+
+0.085 Sun, 16 Feb 2003 01:14:25 +0800
+        - a small bug in Extract.pm fixed
+        - more flexible format of arguments
+
