@@ -1,0 +1,23 @@
+WWW/SpiTract version 0.01
+=========================
+
+WWW::ContentRetrieval is a powerful tool for webpage retrieval and content analysis.
+It automatically fetches web pages and retrieves data according to user's description.
+
+It is in alpha phase.
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2002 xern <xern@cpan.org>
+This module is free software; you can redistribute it or modify it under the same terms as Perl itself.
+
