@@ -17,6 +17,7 @@ match=(<tr>) (<td>) (.+?)\n
 tr=$1
 td=$2
 language="romance language => ".$3
+replace(language)=s/l/a/
 
 ITEMS
 
@@ -49,7 +50,7 @@ $e = WWW::ContentRetrieval::Extract->new({
 
 print Dumper $e->extract;
 ok('spanish', $e->extract->[3]->{LINGUA});
-ok('romance language => latin', $e->extract->[6]->{language});
+ok('romance aanguage => latin', $e->extract->[6]->{language});
 
 __DATA__
 <html>

@@ -2,7 +2,7 @@ package WWW::ContentRetrieval;
 
 use 5.006;
 use strict;
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 use WWW::ContentRetrieval::Spider;
 use WWW::ContentRetrieval::Extract;
@@ -225,6 +225,7 @@ Suppose the product's query url of "foobar technology" be B<http://foo.bar/query
   match=<a href="(.+?)">(.+)</a>
   site=$1
   url=$2
+  replace(url)=s/http/ptth/;
 
   match=<img src="(.+?)">
   photo="http://foo.bar/".$1
@@ -266,9 +267,10 @@ In simple cases, users only need to write down the retrieval settings instead of
  match=<a href="(.+?)">(.+?)</a>
  url=$1
  desc="<".$2.">"
+ replace(url)=s/http/ptth/;
  SETTING
 
-Then the module will try to match the pattern in the retrieved page, and assigns the keys with matched values.
+Then the module will try to match the pattern in the retrieved page, and assigns the keys with matched values. And, B<replace> follows a substitution matcher, which can transform the specified extracted data.
 
 
 If users have to write callback functions for more complex cases, here is the guideline:

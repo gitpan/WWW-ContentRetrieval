@@ -26,6 +26,6 @@ $robot = new WWW::ContentRetrieval({
 );
 
 
-print STDERR "\rIt's trying to fetch web pages. Are you connected to the internet [Y]";
+print STDERR "\n\nIt's trying to fetch web pages. Are you connected to the internet [Y]";
 $_=<>;
-/n/i ? ok(0) : ok( $robot->retrieve() ? 1 : 0 , 1 );
+/n/i ? ok(1) : ok( $robot->retrieve() ? 1 : 0 , 1 );

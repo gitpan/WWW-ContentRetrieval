@@ -2,7 +2,7 @@ package WWW::ContentRetrieval::Extract;
 
 use 5.006;
 use strict;
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 use Data::Dumper;
 use URI;
@@ -45,8 +45,12 @@ sub extract($) {
 				  split( /\n+/o, $$itemref )
 				  ){
 		    if( $line =~ /(.+?)=(.+)/o ){
-			if( $1 eq 'match' ){
-			    $desc->{ITEMS}->{ITEMS_MATCH}->[++$top] = $2;
+			my ($head, $patt) = ($1, $2);
+			if( $head =~ /^replace\((.+?)\)/o ){
+			    $desc->{ITEMS}->{ITEMS_FILTER}->[$top]->{$1} = $patt;
+			}
+			elsif( $head eq 'match' ){
+			    $desc->{ITEMS}->{ITEMS_MATCH}->[++$top] = $patt;
 			}
 			else {
 			    $desc->{ITEMS}->{ITEMS_ASSIGN}->[$top]->{$1} = $2 if $top >= 0;
@@ -62,7 +66,7 @@ sub extract($) {
 	$desc->{ITEMS_PARSED} = 1;
     }
 
-    ### extract links ###
+    ### extract *next* links ###
     for(my $i=0; $i<@{$desc->{NEXT}}; $i+=2){
 	my $trigger = $desc->{NEXT}->[$i];
 	if($trigger && $thisurl =~ /$trigger/){
@@ -100,13 +104,19 @@ return \@retarr;
 sub match_get {
     my ( $pkg, $textref, $pageurl ) = @_;
     my ( @ret, $item, $i );
-    foreach my $patt ( @{$pkg->{DESC}->{ITEMS}->{ITEMS_MATCH}} ){
+    my $desc = $pkg->{DESC};
+    foreach my $patt ( @{$desc->{ITEMS}->{ITEMS_MATCH}} ){
 	$i = 0;
 	while( $$textref =~ /$patt/sg ){
-	    foreach my $ass ( @{$pkg->{DESC}->{ITEMS}->{ITEMS_ASSIGN}} ){
+	    foreach my $idx (0..$#{$desc->{ITEMS}->{ITEMS_ASSIGN}}){
+		my $ass = $desc->{ITEMS}->{ITEMS_ASSIGN}->[$idx];
 		$item = undef;
 		foreach my $asskey ( keys %$ass ){
 		    $item->{$asskey} = eval $ass->{$asskey};
+		    if( $desc->{ITEMS}->{ITEMS_FILTER}->[$idx]->{$asskey} ){
+			eval '$item->{$asskey} =~ '.
+			    $desc->{ITEMS}->{ITEMS_FILTER}->[$idx]->{$asskey};
+		    }
 		}
 		$ret[$i++] = $item;
 	    }
