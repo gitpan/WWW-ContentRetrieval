@@ -17,9 +17,13 @@ Utils/MANIFEST
 Utils/Utils.pm
 CRL/Changes
 CRL/CRL.pm
-CRL/desc.test.txt
 CRL/Makefile.PL
 CRL/MANIFEST
 t/extract.t
 t/robot.desc
 t/robot.t
+ShopBot/Changes
+ShopBot/Makefile.PL
+ShopBot/MANIFEST
+ShopBot/README
+ShopBot/ShopBot.pm

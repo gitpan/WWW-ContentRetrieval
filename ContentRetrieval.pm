@@ -2,7 +2,7 @@ package WWW::ContentRetrieval;
 
 use 5.006;
 use strict;
-our $VERSION = '0.09';
+our $VERSION = '0.091';
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -346,7 +346,7 @@ B<Policy> and B<callback> are the guts of this module and they help to extract d
 
 =item * policy
 
-Policy takes two parameters: a regular expression and a lines of data manipulation sublanguage. Here is an example.
+Policy takes two parameters: a regular expression and lines of data manipulation sublanguage. Here is an example.
 
   mainmatch=m,<a href=(["'])(.+?)\1>(.+?)</a>,sg
   link="http://foobar:/$2"

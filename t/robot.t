@@ -2,8 +2,14 @@ use Test;
 BEGIN { plan tests => 2 };
 ok(1);
 
-print STDERR "\n\nIt's going to fetch 'google.com'. OK? [Y/n] ";
-$a = <>;
+$a = 'n';
+eval{
+    local $SIG{ALRM} = sub { die "\n" };
+    alarm 5;
+    print STDERR "\n\nIt's going to fetch 'google.com'. OK? [Y/n] ";
+    $a = <>;
+    alarm 0;
+};
 
 if($a =~ /n/io){
     ok(1);

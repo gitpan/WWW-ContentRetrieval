@@ -5,7 +5,7 @@ use strict;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw(parse);
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 use File::Slurp;
 use POSIX qw/tmpnam/;
 
@@ -18,6 +18,10 @@ sub refine($) {
 	foreach ( qw(login logout fetch) ){
 	    $_[0]->{jar} = $_[0]->{$_}->{jar} if $_[0]->{$_}->{jar};
 	}
+    }
+    # default method
+    unless( exists $_[0]->{fetch}->{method} ){
+	$_[0]->{fetch}->{method} = 'PLAIN';
     }
     warn "Site's name missing\n" unless $_[0]->{crl};
 }

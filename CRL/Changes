@@ -4,3 +4,5 @@ Revision history for Perl extension WWW::ContentRetrieval::CRL.
 	- original version; created by h2xs 1.21 with options
 		-XA WWW::ContentRetrieval::CRL
 
+0.02  Thu, 20 Feb 2003 00:01:58 +0800
+	- Let default method be PLAIN
