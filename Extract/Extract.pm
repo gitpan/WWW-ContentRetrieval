@@ -3,9 +3,8 @@ package WWW::ContentRetrieval::Extract;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
-use HTML::Tree;
 use Data::Dumper;
 use URI;
 

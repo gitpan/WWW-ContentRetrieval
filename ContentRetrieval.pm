@@ -3,7 +3,7 @@ package WWW::ContentRetrieval;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.05a';
+our $VERSION = '0.05b';
 
 require WWW::ContentRetrieval::Spider;
 require WWW::ContentRetrieval::Extract;
