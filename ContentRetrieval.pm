@@ -3,7 +3,7 @@ package WWW::ContentRetrieval;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.03';
+our $VERSION = '0.04a';
 
 require WWW::ContentRetrieval::Spider;
 require WWW::ContentRetrieval::Extract;
@@ -17,7 +17,6 @@ use Digest::MD5 qw/md5/;
 # ----------------------------------------------------------------------
 # Building an html-tree
 # ----------------------------------------------------------------------
-use IO::String;
 sub bldTree($){
     $_[0] || return;
     my $t;

@@ -61,7 +61,6 @@ sub extract($) {
 		$c = $1;
 		$c = URI->new_abs($c, $thisurl)->as_string if($c !~ /^http:/o);
 		$output->{DTLURL} = $c;
-		print "$thisurl $trigger $c\n";
 		push @retarr, $output if $c;
 	    }
 	}
